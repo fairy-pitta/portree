@@ -1,0 +1,17 @@
+# Binary
+gws
+dist/
+
+# State (runtime)
+.gws/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
