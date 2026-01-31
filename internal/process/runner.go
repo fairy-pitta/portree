@@ -124,6 +124,7 @@ func (r *Runner) Stop() error {
 }
 
 // Done returns a channel that is closed when the process exits.
+// Returns nil if Start has not been called yet.
 func (r *Runner) Done() <-chan struct{} {
 	return r.done
 }

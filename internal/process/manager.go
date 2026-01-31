@@ -17,7 +17,7 @@ type Manager struct {
 	cfg      *config.Config
 	store    *state.FileStore
 	registry *port.Registry
-	mu       sync.Mutex
+	mu       sync.RWMutex
 	runners  map[string]*Runner // key: "branch:service"
 }
 
@@ -38,9 +38,9 @@ func (m *Manager) setRunner(key string, r *Runner) {
 }
 
 func (m *Manager) getRunner(key string) (*Runner, bool) {
-	m.mu.Lock()
+	m.mu.RLock()
 	r, ok := m.runners[key]
-	m.mu.Unlock()
+	m.mu.RUnlock()
 	return r, ok
 }
 

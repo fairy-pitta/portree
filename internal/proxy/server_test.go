@@ -74,6 +74,72 @@ func TestHandlerUnknownSlug(t *testing.T) {
 	}
 }
 
+func TestProxyServerStartStop(t *testing.T) {
+	proxy, _ := setupProxyTest(t)
+
+	proxyPorts := map[string]int{"web": 19300}
+	if err := proxy.Start(proxyPorts); err != nil {
+		t.Fatalf("Start() error: %v", err)
+	}
+
+	// Verify listeners and servers are tracked.
+	proxy.mu.Lock()
+	nServers := len(proxy.servers)
+	nListeners := len(proxy.listeners)
+	proxy.mu.Unlock()
+
+	if nServers != 1 {
+		t.Errorf("servers count = %d, want 1", nServers)
+	}
+	if nListeners != 1 {
+		t.Errorf("listeners count = %d, want 1", nListeners)
+	}
+
+	// Stop should clean up.
+	if err := proxy.Stop(); err != nil {
+		t.Fatalf("Stop() error: %v", err)
+	}
+
+	proxy.mu.Lock()
+	nServers = len(proxy.servers)
+	nListeners = len(proxy.listeners)
+	proxy.mu.Unlock()
+
+	if nServers != 0 {
+		t.Errorf("servers count after stop = %d, want 0", nServers)
+	}
+	if nListeners != 0 {
+		t.Errorf("listeners count after stop = %d, want 0", nListeners)
+	}
+}
+
+func TestProxyServerStopWithoutStart(t *testing.T) {
+	proxy, _ := setupProxyTest(t)
+	// Stop on a server that was never started should not error.
+	if err := proxy.Stop(); err != nil {
+		t.Errorf("Stop() without Start = %v, want nil", err)
+	}
+}
+
+func TestProxyServerStartDuplicatePort(t *testing.T) {
+	proxy, _ := setupProxyTest(t)
+
+	// Two services on the same proxy port should only create one listener.
+	proxyPorts := map[string]int{"web": 19301, "api": 19301}
+	if err := proxy.Start(proxyPorts); err != nil {
+		t.Fatalf("Start() error: %v", err)
+	}
+	defer proxy.Stop()
+
+	proxy.mu.Lock()
+	nServers := len(proxy.servers)
+	proxy.mu.Unlock()
+
+	if nServers != 1 {
+		t.Errorf("servers count for duplicate port = %d, want 1", nServers)
+	}
+}
+
 func TestHandlerResolvesToBackend(t *testing.T) {
 	dir := t.TempDir()
 	store, err := state.NewFileStore(dir)
