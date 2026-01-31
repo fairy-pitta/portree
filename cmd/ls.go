@@ -9,6 +9,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/fairy-pitta/portree/internal/git"
+	"github.com/fairy-pitta/portree/internal/logging"
 	"github.com/fairy-pitta/portree/internal/process"
 	"github.com/fairy-pitta/portree/internal/state"
 	"github.com/spf13/cobra"
@@ -44,10 +45,12 @@ var lsCmd = &cobra.Command{
 		}
 
 		var st *state.State
-		_ = store.WithLock(func() error {
+		if err := store.WithLock(func() error {
 			st, err = store.Load()
 			return err
-		})
+		}); err != nil {
+			logging.Warn("failed to load state: %v", err)
+		}
 		if st == nil {
 			st = &state.State{
 				Services:        map[string]map[string]*state.ServiceState{},
