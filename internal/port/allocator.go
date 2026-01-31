@@ -49,6 +49,8 @@ func hashPort(branch, service string, min, max int) int {
 // mitigated by (1) the file-level lock in state.FileStore serializing port
 // allocation across concurrent portree invocations, and (2) a clear error
 // message when the service fails to bind its assigned port.
+// We check on 127.0.0.1 to match the proxy bind address, though services may
+// listen on 0.0.0.0. In practice the file lock prevents concurrent conflicts.
 func isPortFree(port int) bool {
 	ln, err := net.Listen("tcp", "127.0.0.1:"+strconv.Itoa(port))
 	if err != nil {

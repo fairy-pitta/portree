@@ -8,6 +8,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/fairy-pitta/portree/internal/logging"
 )
 
 const stopTimeout = 10 * time.Second
@@ -146,7 +148,12 @@ func StopPID(pid int) error {
 		}
 	}
 	_ = syscall.Kill(-pgid, syscall.SIGKILL)
-	time.Sleep(100 * time.Millisecond)
+	for i := 0; i < 5; i++ {
+		time.Sleep(50 * time.Millisecond)
+		if !IsProcessRunning(pid) {
+			return nil
+		}
+	}
 	return nil
 }
 
@@ -186,6 +193,7 @@ func (r *Runner) buildEnv() []string {
 	// Add global and worktree-override env vars.
 	for k, v := range r.config.Env {
 		if strings.ContainsRune(k, 0) || strings.ContainsRune(v, 0) {
+			logging.Warn("skipping env var %q: contains null byte", k)
 			continue
 		}
 		env = append(env, k+"="+v)
