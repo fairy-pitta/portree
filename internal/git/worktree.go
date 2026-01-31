@@ -128,7 +128,11 @@ func parsePorcelain(output string) ([]Worktree, error) {
 
 		case line == "detached":
 			if current != nil && current.Branch == "" {
-				current.Branch = current.Head[:8] // use short hash
+				if len(current.Head) >= 8 {
+					current.Branch = current.Head[:8]
+				} else {
+					current.Branch = current.Head
+				}
 			}
 
 		case line == "":

@@ -41,8 +41,9 @@ func (p *ProxyServer) Start(proxyPorts map[string]int) error {
 
 	for port := range ports {
 		srv := &http.Server{
-			Addr:    "127.0.0.1:" + strconv.Itoa(port),
-			Handler: p.handler(port),
+			Addr:        "127.0.0.1:" + strconv.Itoa(port),
+			Handler:     p.handler(port),
+			IdleTimeout: 120 * time.Second,
 		}
 
 		ln, err := net.Listen("tcp", srv.Addr)

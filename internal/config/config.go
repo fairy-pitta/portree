@@ -194,7 +194,7 @@ proxy_port = 8000
 # services.backend.command = "source .venv/bin/activate && python manage.py runserver --settings=myapp.settings_auth 0.0.0.0:$PORT"
 # services.backend.env = { DEBUG = "1" }
 `
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
 		return "", fmt.Errorf("writing %s: %w", FileName, err)
 	}
 	return path, nil

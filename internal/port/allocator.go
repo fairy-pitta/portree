@@ -50,7 +50,7 @@ func hashPort(branch, service string, min, max int) int {
 // allocation across concurrent portree invocations, and (2) a clear error
 // message when the service fails to bind its assigned port.
 func isPortFree(port int) bool {
-	ln, err := net.Listen("tcp", ":"+strconv.Itoa(port))
+	ln, err := net.Listen("tcp", "127.0.0.1:"+strconv.Itoa(port))
 	if err != nil {
 		return false
 	}

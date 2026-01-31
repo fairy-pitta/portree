@@ -46,8 +46,9 @@ var lsCmd = &cobra.Command{
 
 		var st *state.State
 		if err := store.WithLock(func() error {
-			st, err = store.Load()
-			return err
+			var e error
+			st, e = store.Load()
+			return e
 		}); err != nil {
 			logging.Warn("failed to load state: %v", err)
 		}

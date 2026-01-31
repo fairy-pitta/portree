@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/fairy-pitta/portree/internal/git"
+	"github.com/fairy-pitta/portree/internal/logging"
 	"github.com/fairy-pitta/portree/internal/port"
 	"github.com/fairy-pitta/portree/internal/process"
 	"github.com/fairy-pitta/portree/internal/state"
@@ -64,9 +65,9 @@ var downCmd = &cobra.Command{
 			results := mgr.StopServices(&tree, downService)
 			for _, r := range results {
 				if r.Err != nil {
-					fmt.Fprintf(os.Stderr, "Error stopping %s/%s: %v\n", r.Branch, r.Service, r.Err)
+					logging.Error("stopping %s/%s: %v", r.Branch, r.Service, r.Err)
 				} else {
-					fmt.Printf("Stopping %s for %s ...\n", r.Service, r.Branch)
+					logging.Info("Stopping %s for %s ...", r.Service, r.Branch)
 					totalStopped++
 				}
 			}
@@ -78,9 +79,9 @@ var downCmd = &cobra.Command{
 				noun = "service"
 			}
 			if downAll {
-				fmt.Printf("✓ %d %s stopped\n", totalStopped, noun)
+				logging.Info("✓ %d %s stopped", totalStopped, noun)
 			} else {
-				fmt.Printf("✓ %d %s stopped for %s\n", totalStopped, noun, trees[0].Branch)
+				logging.Info("✓ %d %s stopped for %s", totalStopped, noun, trees[0].Branch)
 			}
 		}
 

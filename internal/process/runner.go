@@ -146,6 +146,7 @@ func StopPID(pid int) error {
 		}
 	}
 	_ = syscall.Kill(-pgid, syscall.SIGKILL)
+	time.Sleep(100 * time.Millisecond)
 	return nil
 }
 
@@ -184,6 +185,9 @@ func (r *Runner) buildEnv() []string {
 
 	// Add global and worktree-override env vars.
 	for k, v := range r.config.Env {
+		if strings.ContainsRune(k, 0) || strings.ContainsRune(v, 0) {
+			continue
+		}
 		env = append(env, k+"="+v)
 	}
 

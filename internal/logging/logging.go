@@ -57,8 +57,8 @@ func IsQuiet() bool {
 
 // Info prints a message at normal level.
 func Info(format string, args ...any) {
-	std.mu.Lock()
-	defer std.mu.Unlock()
+	std.mu.RLock()
+	defer std.mu.RUnlock()
 	if std.level >= LevelNormal {
 		_, _ = fmt.Fprintf(std.out, format+"\n", args...)
 	}
@@ -66,8 +66,8 @@ func Info(format string, args ...any) {
 
 // Verbose prints a message at verbose level.
 func Verbose(format string, args ...any) {
-	std.mu.Lock()
-	defer std.mu.Unlock()
+	std.mu.RLock()
+	defer std.mu.RUnlock()
 	if std.level >= LevelVerbose {
 		_, _ = fmt.Fprintf(std.out, format+"\n", args...)
 	}
@@ -75,8 +75,8 @@ func Verbose(format string, args ...any) {
 
 // Debug prints a message at debug level.
 func Debug(format string, args ...any) {
-	std.mu.Lock()
-	defer std.mu.Unlock()
+	std.mu.RLock()
+	defer std.mu.RUnlock()
 	if std.level >= LevelDebug {
 		_, _ = fmt.Fprintf(std.out, "[debug] "+format+"\n", args...)
 	}
@@ -84,8 +84,8 @@ func Debug(format string, args ...any) {
 
 // Warn always prints unless in quiet mode.
 func Warn(format string, args ...any) {
-	std.mu.Lock()
-	defer std.mu.Unlock()
+	std.mu.RLock()
+	defer std.mu.RUnlock()
 	if std.level > LevelQuiet {
 		_, _ = fmt.Fprintf(std.out, "warning: "+format+"\n", args...)
 	}
@@ -93,7 +93,7 @@ func Warn(format string, args ...any) {
 
 // Error always prints.
 func Error(format string, args ...any) {
-	std.mu.Lock()
-	defer std.mu.Unlock()
+	std.mu.RLock()
+	defer std.mu.RUnlock()
 	_, _ = fmt.Fprintf(std.out, "error: "+format+"\n", args...)
 }

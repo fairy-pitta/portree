@@ -29,6 +29,7 @@ type Model struct {
 	registry *port.Registry
 	manager  *process.Manager
 	keys     KeyMap
+	trees    []git.Worktree // cached at init
 
 	rows         []ServiceRow
 	cursor       int
@@ -50,6 +51,16 @@ func NewModel(cfg *config.Config, repoRoot string) (*Model, error) {
 	registry := port.NewRegistry(store, cfg)
 	mgr := process.NewManager(cfg, store, registry)
 
+	// Cache worktree list at init to avoid forking git on every poll cycle.
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("getting current directory: %w", err)
+	}
+	trees, err := git.ListWorktrees(cwd)
+	if err != nil {
+		return nil, fmt.Errorf("listing worktrees: %w", err)
+	}
+
 	// Collect proxy ports.
 	var proxyPorts []int
 	seen := map[int]bool{}
@@ -68,6 +79,7 @@ func NewModel(cfg *config.Config, repoRoot string) (*Model, error) {
 		registry:   registry,
 		manager:    mgr,
 		keys:       DefaultKeyMap(),
+		trees:      trees,
 		proxyPorts: proxyPorts,
 	}, nil
 }
@@ -192,16 +204,6 @@ func (m *Model) selectedRow() *ServiceRow {
 }
 
 func (m *Model) refreshStatus() tea.Msg {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return StatusUpdateMsg{}
-	}
-
-	trees, err := git.ListWorktrees(cwd)
-	if err != nil {
-		return StatusUpdateMsg{}
-	}
-
 	serviceNames := make([]string, 0, len(m.cfg.Services))
 	for name := range m.cfg.Services {
 		serviceNames = append(serviceNames, name)
@@ -221,7 +223,7 @@ func (m *Model) refreshStatus() tea.Msg {
 	}
 
 	var rows []ServiceRow
-	for _, tree := range trees {
+	for _, tree := range m.trees {
 		if tree.IsBare {
 			continue
 		}
@@ -324,17 +326,8 @@ func (m *Model) openSelected() tea.Msg {
 }
 
 func (m *Model) startAll() tea.Msg {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return ActionResultMsg{Message: fmt.Sprintf("Error: %v", err), IsError: true}
-	}
-	trees, err := git.ListWorktrees(cwd)
-	if err != nil {
-		return ActionResultMsg{Message: fmt.Sprintf("Error: %v", err), IsError: true}
-	}
-
 	count := 0
-	for _, tree := range trees {
+	for _, tree := range m.trees {
 		if tree.IsBare {
 			continue
 		}
@@ -349,17 +342,8 @@ func (m *Model) startAll() tea.Msg {
 }
 
 func (m *Model) stopAll() tea.Msg {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return ActionResultMsg{Message: fmt.Sprintf("Error: %v", err), IsError: true}
-	}
-	trees, err := git.ListWorktrees(cwd)
-	if err != nil {
-		return ActionResultMsg{Message: fmt.Sprintf("Error: %v", err), IsError: true}
-	}
-
 	count := 0
-	for _, tree := range trees {
+	for _, tree := range m.trees {
 		if tree.IsBare {
 			continue
 		}
@@ -389,17 +373,9 @@ func (m *Model) viewLogs() tea.Msg {
 	return ActionResultMsg{Message: fmt.Sprintf("Log file: %s", logPath)}
 }
 
-// worktreePath looks up the worktree path from known worktrees.
+// worktreePath looks up the worktree path from cached worktrees.
 func (m *Model) worktreePath(branch string) string {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return m.repoRoot
-	}
-	trees, err := git.ListWorktrees(cwd)
-	if err != nil {
-		return m.repoRoot
-	}
-	for _, t := range trees {
+	for _, t := range m.trees {
 		if t.Branch == branch {
 			return t.Path
 		}

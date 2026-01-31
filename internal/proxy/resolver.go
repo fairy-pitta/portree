@@ -34,23 +34,29 @@ func (r *Resolver) Resolve(slug string, proxyPort int) (int, error) {
 		return 0, fmt.Errorf("no service configured for proxy_port %d", proxyPort)
 	}
 
-	// Find the branch that matches this slug.
-	branch, err := r.slugToBranch(slug)
-	if err != nil {
-		return 0, err
-	}
-
-	// Look up the real port from state.
+	// Resolve branch and port in a single lock to avoid inconsistency.
+	var branch string
 	var port int
 	if err := r.store.WithLock(func() error {
 		st, e := r.store.Load()
 		if e != nil {
 			return e
 		}
+		// Find the branch that matches this slug.
+		for key := range st.PortAssignments {
+			parts := strings.SplitN(key, ":", 2)
+			if len(parts) == 2 && git.BranchSlug(parts[0]) == slug {
+				branch = parts[0]
+				break
+			}
+		}
+		if branch == "" {
+			return fmt.Errorf("no worktree found for slug %q", slug)
+		}
 		port = state.GetPortAssignment(st, branch, serviceName)
 		return nil
 	}); err != nil {
-		return 0, fmt.Errorf("loading state: %w", err)
+		return 0, err
 	}
 
 	if port == 0 {
@@ -85,37 +91,6 @@ func (r *Resolver) AvailableSlugs() ([]string, error) {
 	}
 
 	return slugs, nil
-}
-
-// slugToBranch converts a URL slug back to the original branch name
-// by checking state for known branches.
-func (r *Resolver) slugToBranch(slug string) (string, error) {
-	var branch string
-
-	if err := r.store.WithLock(func() error {
-		st, e := r.store.Load()
-		if e != nil {
-			return e
-		}
-		for key := range st.PortAssignments {
-			parts := strings.SplitN(key, ":", 2)
-			if len(parts) == 2 {
-				candidate := parts[0]
-				if git.BranchSlug(candidate) == slug {
-					branch = candidate
-					return nil
-				}
-			}
-		}
-		return nil
-	}); err != nil {
-		return "", err
-	}
-
-	if branch == "" {
-		return "", fmt.Errorf("no worktree found for slug %q", slug)
-	}
-	return branch, nil
 }
 
 // ParseSlugFromHost extracts the slug from a Host header value.
