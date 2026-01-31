@@ -27,7 +27,7 @@ var initCmd = &cobra.Command{
 
 		path, err := config.Init(root)
 		if err != nil {
-			return fmt.Errorf("initializing config: %w", err)
+			return err
 		}
 
 		fmt.Printf("Created %s in %s\n", config.FileName, root)

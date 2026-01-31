@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"errors"
 	"syscall"
 	"time"
 
@@ -105,8 +106,12 @@ func (s *FileStore) WithLock(fn func() error) error {
 
 	deadline := time.Now().Add(lockTimeout)
 	for {
-		if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err == nil {
+		err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+		if err == nil {
 			break
+		}
+		if !errors.Is(err, syscall.EWOULDBLOCK) {
+			return fmt.Errorf("acquiring lock: %w", err)
 		}
 		if time.Now().After(deadline) {
 			return fmt.Errorf("acquiring lock: timed out after %v", lockTimeout)
