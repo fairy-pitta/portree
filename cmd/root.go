@@ -6,6 +6,7 @@ import (
 
 	"github.com/fairy-pitta/portree/internal/config"
 	"github.com/fairy-pitta/portree/internal/git"
+	"github.com/fairy-pitta/portree/internal/logging"
 	"github.com/spf13/cobra"
 )
 
@@ -22,8 +23,18 @@ var rootCmd = &cobra.Command{
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Configure log level from flags.
+		verbose, _ := cmd.Flags().GetBool("verbose")
+		quiet, _ := cmd.Flags().GetBool("quiet")
+		if verbose {
+			logging.SetLevel(logging.LevelVerbose)
+		}
+		if quiet {
+			logging.SetLevel(logging.LevelQuiet)
+		}
+
 		// Skip repo/config detection for commands that don't need it.
-		if cmd.Name() == "init" || cmd.Name() == "version" || cmd.Name() == "completion" {
+		if cmd.Name() == "init" || cmd.Name() == "version" || cmd.Name() == "completion" || cmd.Name() == "doctor" {
 			return nil
 		}
 
@@ -37,13 +48,23 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("not inside a git repository")
 		}
 
+		logging.Verbose("repo root: %s", repoRoot)
+
 		cfg, err = config.Load(repoRoot)
 		if err != nil {
 			return err
 		}
 
+		logging.Verbose("loaded config with %d service(s)", len(cfg.Services))
+
 		return nil
 	},
+}
+
+func init() {
+	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
+	rootCmd.PersistentFlags().BoolP("quiet", "q", false, "Suppress all non-error output")
+	rootCmd.MarkFlagsMutuallyExclusive("verbose", "quiet")
 }
 
 // Execute runs the root command.

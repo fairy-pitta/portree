@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -14,6 +13,7 @@ import (
 	"github.com/fairy-pitta/portree/internal/browser"
 	"github.com/fairy-pitta/portree/internal/config"
 	"github.com/fairy-pitta/portree/internal/git"
+	"github.com/fairy-pitta/portree/internal/logging"
 	"github.com/fairy-pitta/portree/internal/port"
 	"github.com/fairy-pitta/portree/internal/process"
 	"github.com/fairy-pitta/portree/internal/state"
@@ -103,7 +103,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.proxyRunning = st.Proxy.Status == "running" && st.Proxy.PID > 0 && process.IsProcessRunning(st.Proxy.PID)
 			return nil
 		}); err != nil {
-			log.Printf("warning: failed to load proxy state: %v", err)
+			logging.Warn("failed to load proxy state: %v", err)
 		}
 		if m.cursor >= len(m.rows) && len(m.rows) > 0 {
 			m.cursor = len(m.rows) - 1
@@ -214,7 +214,7 @@ func (m *Model) refreshStatus() tea.Msg {
 		st, e = m.store.Load()
 		return e
 	}); err != nil {
-		log.Printf("warning: failed to load state for refresh: %v", err)
+		logging.Warn("failed to load state for refresh: %v", err)
 	}
 	if st == nil {
 		return StatusUpdateMsg{}

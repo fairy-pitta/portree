@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/fairy-pitta/portree/internal/git"
+	"github.com/fairy-pitta/portree/internal/logging"
 	"github.com/fairy-pitta/portree/internal/port"
 	"github.com/fairy-pitta/portree/internal/process"
 	"github.com/fairy-pitta/portree/internal/state"
@@ -69,6 +70,7 @@ var upCmd = &cobra.Command{
 			if tree.IsBare {
 				continue
 			}
+			logging.Verbose("starting services for worktree %s (%s)", tree.Branch, tree.Path)
 			results := mgr.StartServices(&tree, upService)
 			for _, r := range results {
 				if r.Err != nil {

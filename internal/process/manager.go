@@ -1,13 +1,13 @@
 package process
 
 import (
-	"log"
 	"path/filepath"
 	"sort"
 	"sync"
 
 	"github.com/fairy-pitta/portree/internal/config"
 	"github.com/fairy-pitta/portree/internal/git"
+	"github.com/fairy-pitta/portree/internal/logging"
 	"github.com/fairy-pitta/portree/internal/port"
 	"github.com/fairy-pitta/portree/internal/state"
 )
@@ -136,7 +136,7 @@ func (m *Manager) StartServices(tree *git.Worktree, serviceFilter string) []Star
 				state.SetServiceState(st, tree.Branch, svcName, state.RunningServiceState(p, pid))
 				return m.store.Save(st)
 			}); err != nil {
-				log.Printf("warning: failed to save state after starting %s/%s: %v", tree.Branch, svcName, err)
+				logging.Warn("failed to save state after starting %s/%s: %v", tree.Branch, svcName, err)
 			}
 		}
 	}
@@ -189,7 +189,7 @@ func (m *Manager) StopServices(tree *git.Worktree, serviceFilter string) []Start
 			state.SetServiceState(st, tree.Branch, svcName, state.StoppedServiceState(portVal))
 			return m.store.Save(st)
 		}); err != nil {
-			log.Printf("warning: failed to update state after stopping %s/%s: %v", tree.Branch, svcName, err)
+			logging.Warn("failed to update state after stopping %s/%s: %v", tree.Branch, svcName, err)
 		}
 
 		results = append(results, result)
@@ -212,7 +212,7 @@ func (m *Manager) cleanStale(branch, service string) {
 		}
 		return nil
 	}); err != nil {
-		log.Printf("warning: failed to clean stale state for %s/%s: %v", branch, service, err)
+		logging.Warn("failed to clean stale state for %s/%s: %v", branch, service, err)
 	}
 }
 
