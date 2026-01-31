@@ -6,7 +6,7 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/shuna/gws/internal/config"
+	"github.com/fairy-pitta/portree/internal/config"
 )
 
 // Allocate returns a port for the given branch and service using FNV32 hash.

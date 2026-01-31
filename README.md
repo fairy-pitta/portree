@@ -1,6 +1,6 @@
-# gws - Git Worktree Server Manager
+# portree - Git Worktree Server Manager
 
-**gws** automatically manages multiple dev servers per [git worktree](https://git-scm.com/docs/git-worktree) — with automatic port allocation, environment variable injection, and `*.localhost` subdomain routing via reverse proxy.
+**portree** automatically manages multiple dev servers per [git worktree](https://git-scm.com/docs/git-worktree) — with automatic port allocation, environment variable injection, and `*.localhost` subdomain routing via reverse proxy.
 
 > Japanese version: [README.ja.md](./README.ja.md)
 
@@ -11,7 +11,7 @@
 - **Multi-service** — Define frontend, backend, and any number of services per worktree
 - **Automatic port allocation** — Hash-based port assignment (FNV32) with per-service ranges; no port conflicts across worktrees
 - **Subdomain reverse proxy** — Access any worktree via `branch-name.localhost:<port>` (no `/etc/hosts` editing required)
-- **Environment variable injection** — `$PORT`, `$GWS_BRANCH`, `$GWS_BACKEND_URL`, etc. are injected automatically
+- **Environment variable injection** — `$PORT`, `$PT_BRANCH`, `$PT_BACKEND_URL`, etc. are injected automatically
 - **TUI dashboard** — Interactive terminal UI to start, stop, restart, and monitor all services
 - **Process lifecycle** — Graceful shutdown (SIGTERM → SIGKILL), log files, stale PID cleanup
 - **Per-worktree overrides** — Customize commands, ports, and env vars per branch
@@ -24,11 +24,11 @@
 
 ```bash
 # From source
-go install github.com/shuna/gws@latest
+go install github.com/fairy-pitta/portree@latest
 
 # Or build locally
-git clone https://github.com/shuna/gws.git
-cd gws
+git clone https://github.com/fairy-pitta/portree.git
+cd portree
 make build
 ```
 
@@ -36,13 +36,13 @@ make build
 
 ```bash
 cd your-project
-gws init
-# Creates .gws.toml in the repo root
+portree init
+# Creates .portree.toml in the repo root
 ```
 
 ### 3. Configure
 
-Edit `.gws.toml` to match your project:
+Edit `.portree.toml` to match your project:
 
 ```toml
 [services.frontend]
@@ -64,14 +64,14 @@ NODE_ENV = "development"
 ### 4. Start services
 
 ```bash
-gws up            # Start all services for the current worktree
-gws up --all      # Start all services for ALL worktrees
+portree up            # Start all services for the current worktree
+portree up --all      # Start all services for ALL worktrees
 ```
 
 ### 5. Start the proxy
 
 ```bash
-gws proxy start
+portree proxy start
 # :3000 → frontend services
 # :8000 → backend services
 ```
@@ -79,34 +79,34 @@ gws proxy start
 ### 6. Open in browser
 
 ```bash
-gws open                    # Opens http://main.localhost:3000
-gws open --service backend  # Opens http://main.localhost:8000
+portree open                    # Opens http://main.localhost:3000
+portree open --service backend  # Opens http://main.localhost:8000
 ```
 
 ---
 
 ## Commands
 
-| Command            | Description                                           |
-| ------------------ | ----------------------------------------------------- |
-| `gws init`         | Create a `.gws.toml` configuration file               |
-| `gws up`           | Start services for the current worktree               |
-| `gws up --all`     | Start services for all worktrees                      |
-| `gws up --service` | Start a specific service only                         |
-| `gws down`         | Stop services for the current worktree                |
-| `gws down --all`   | Stop services for all worktrees                       |
-| `gws ls`           | List all worktrees, services, ports, status, and PIDs |
-| `gws dash`         | Open the interactive TUI dashboard                    |
-| `gws proxy start`  | Start the reverse proxy (foreground)                  |
-| `gws proxy stop`   | Stop the reverse proxy                                |
-| `gws open`         | Open the current worktree in a browser                |
-| `gws version`      | Print version information                             |
+| Command                | Description                                           |
+| ---------------------- | ----------------------------------------------------- |
+| `portree init`         | Create a `.portree.toml` configuration file           |
+| `portree up`           | Start services for the current worktree               |
+| `portree up --all`     | Start services for all worktrees                      |
+| `portree up --service` | Start a specific service only                         |
+| `portree down`         | Stop services for the current worktree                |
+| `portree down --all`   | Stop services for all worktrees                       |
+| `portree ls`           | List all worktrees, services, ports, status, and PIDs |
+| `portree dash`         | Open the interactive TUI dashboard                    |
+| `portree proxy start`  | Start the reverse proxy (foreground)                  |
+| `portree proxy stop`   | Stop the reverse proxy                                |
+| `portree open`         | Open the current worktree in a browser                |
+| `portree version`      | Print version information                             |
 
 ---
 
 ## Configuration Reference
 
-The `.gws.toml` file lives at the root of your git repository.
+The `.portree.toml` file lives at the root of your git repository.
 
 ### `[services.<name>]`
 
@@ -154,16 +154,16 @@ services.backend.env = { DEBUG = "1" }
 
 ## Environment Variables
 
-gws automatically injects the following environment variables into every service process:
+portree automatically injects the following environment variables into every service process:
 
-| Variable             | Example                                              | Description                       |
-| -------------------- | ---------------------------------------------------- | --------------------------------- |
-| `PORT`               | `3117`                                               | Allocated port for this service   |
-| `GWS_BRANCH`         | `feature/auth`                                       | Current branch name               |
-| `GWS_BRANCH_SLUG`    | `feature-auth`                                       | URL-safe slug of the branch name  |
-| `GWS_SERVICE`        | `frontend`                                           | Name of the current service       |
-| `GWS_<SERVICE>_PORT` | `GWS_FRONTEND_PORT=3117`                             | Port of each sibling service      |
-| `GWS_<SERVICE>_URL`  | `GWS_BACKEND_URL=http://feature-auth.localhost:8000` | Proxy URL of each sibling service |
+| Variable            | Example                                             | Description                       |
+| ------------------- | --------------------------------------------------- | --------------------------------- |
+| `PORT`              | `3117`                                              | Allocated port for this service   |
+| `PT_BRANCH`         | `feature/auth`                                      | Current branch name               |
+| `PT_BRANCH_SLUG`    | `feature-auth`                                      | URL-safe slug of the branch name  |
+| `PT_SERVICE`        | `frontend`                                          | Name of the current service       |
+| `PT_<SERVICE>_PORT` | `PT_FRONTEND_PORT=3117`                             | Port of each sibling service      |
+| `PT_<SERVICE>_URL`  | `PT_BACKEND_URL=http://feature-auth.localhost:8000` | Proxy URL of each sibling service |
 
 This allows services to discover each other automatically:
 
@@ -174,7 +174,7 @@ module.exports = {
     return [
       {
         source: "/api/:path*",
-        destination: `${process.env.GWS_BACKEND_URL}/api/:path*`,
+        destination: `${process.env.PT_BACKEND_URL}/api/:path*`,
       },
     ];
   },
@@ -198,7 +198,7 @@ module.exports = {
 └─────────┼──────────────────────┼────────────────────────────┘
           │                      │
     ┌─────▼──────────────────────▼─────┐
-    │       gws reverse proxy          │
+    │     portree reverse proxy        │
     │                                  │
     │  :3000  ←  *.localhost:3000      │
     │  :8000  ←  *.localhost:8000      │
@@ -210,7 +210,7 @@ module.exports = {
 ```
 
 1. **Port allocation** — Each service gets a port via `FNV32(branch:service) % range`. Stable across restarts.
-2. **Process management** — Services run as child processes with process groups. Logs go to `.gws/logs/`.
+2. **Process management** — Services run as child processes with process groups. Logs go to `.portree/logs/`.
 3. **Reverse proxy** — One HTTP listener per `proxy_port`. Routes based on `Host` header subdomain.
 4. **`*.localhost`** — Per [RFC 6761](https://tools.ietf.org/html/rfc6761), modern browsers resolve `*.localhost` to `127.0.0.1` automatically.
 
@@ -218,10 +218,10 @@ module.exports = {
 
 ## TUI Dashboard
 
-Launch with `gws dash`:
+Launch with `portree dash`:
 
 ```
-╭─ gws dashboard ──────────────────────────────────────────────╮
+╭─ portree dashboard ──────────────────────────────────────────╮
 │                                                               │
 │  WORKTREE        SERVICE    PORT   STATUS      PID            │
 │  ──────────────────────────────────────────────────────────── │
@@ -261,25 +261,25 @@ Launch with `gws dash`:
 # You're working on a monorepo with frontend + backend
 cd my-project
 
-# Initialize gws
-gws init
-# Edit .gws.toml to define your services...
+# Initialize portree
+portree init
+# Edit .portree.toml to define your services...
 
 # Create a feature branch worktree
 git worktree add ../my-project-feature-auth feature/auth
 
 # Start services on your current branch
-gws up
+portree up
 # Starting frontend (port 3100) for main ...
 # Starting backend (port 8100) for main ...
 # ✓ 2 services started for main
 
 # Start services on ALL worktrees at once
-gws up --all
+portree up --all
 # ✓ 4 services started
 
 # Check status
-gws ls
+portree ls
 # WORKTREE        SERVICE    PORT   STATUS    PID
 # main            frontend   3100   running   12345
 # main            backend    8100   running   12346
@@ -287,7 +287,7 @@ gws ls
 # feature/auth    backend    8104   running   12348
 
 # Start the proxy
-gws proxy start
+portree proxy start
 # Access:
 #   http://main.localhost:3000          → frontend (main)
 #   http://main.localhost:8000          → backend (main)
@@ -295,14 +295,14 @@ gws proxy start
 #   http://feature-auth.localhost:8000  → backend (feature/auth)
 
 # Open in browser
-gws open
+portree open
 # Opening http://main.localhost:3000 ...
 
 # Or use the TUI
-gws dash
+portree dash
 
 # When done
-gws down --all
+portree down --all
 # ✓ 4 services stopped
 ```
 
@@ -316,23 +316,23 @@ Modern browsers (Chrome, Firefox, Edge, Safari) resolve `*.localhost` to `127.0.
 
 ### What happens if two worktrees hash to the same port?
 
-gws uses linear probing — if the hash-derived port is already taken, it tries the next port in the range until it finds a free one.
+portree uses linear probing — if the hash-derived port is already taken, it tries the next port in the range until it finds a free one.
 
-### Can I use gws without the proxy?
+### Can I use portree without the proxy?
 
-Yes. `gws up` starts your services with allocated ports. You can access them directly at `localhost:<port>`. The proxy is optional.
+Yes. `portree up` starts your services with allocated ports. You can access them directly at `localhost:<port>`. The proxy is optional.
 
 ### Where are logs stored?
 
-Service logs are written to `.gws/logs/<branch-slug>.<service>.log` in the main worktree's root.
+Service logs are written to `.portree/logs/<branch-slug>.<service>.log` in the main worktree's root.
 
 ### Where is state stored?
 
-Runtime state (PIDs, port assignments) is stored in `.gws/state.json` with file-level locking for concurrent access safety.
+Runtime state (PIDs, port assignments) is stored in `.portree/state.json` with file-level locking for concurrent access safety.
 
 ### Can I run different commands per branch?
 
-Yes, use `[worktrees."branch-name"]` overrides in `.gws.toml`:
+Yes, use `[worktrees."branch-name"]` overrides in `.portree.toml`:
 
 ```toml
 [worktrees."feature/auth"]
@@ -345,20 +345,20 @@ services.backend.env = { DEBUG = "1" }
 ## Project Structure
 
 ```
-gws/
+portree/
 ├── main.go                      # Entry point
 ├── cmd/                         # CLI commands (cobra)
 │   ├── root.go                  # Root command + repo/config detection
-│   ├── init.go                  # gws init
-│   ├── up.go                    # gws up
-│   ├── down.go                  # gws down
-│   ├── ls.go                    # gws ls
-│   ├── dash.go                  # gws dash
-│   ├── proxy.go                 # gws proxy start|stop
-│   ├── open.go                  # gws open
-│   └── version.go               # gws version
+│   ├── init.go                  # portree init
+│   ├── up.go                    # portree up
+│   ├── down.go                  # portree down
+│   ├── ls.go                    # portree ls
+│   ├── dash.go                  # portree dash
+│   ├── proxy.go                 # portree proxy start|stop
+│   ├── open.go                  # portree open
+│   └── version.go               # portree version
 ├── internal/
-│   ├── config/config.go         # .gws.toml loading & validation
+│   ├── config/config.go         # .portree.toml loading & validation
 │   ├── git/
 │   │   ├── repo.go              # Repo root / common dir detection
 │   │   └── worktree.go          # Worktree listing & branch slugs

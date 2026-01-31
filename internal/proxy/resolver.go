@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/shuna/gws/internal/config"
-	"github.com/shuna/gws/internal/git"
-	"github.com/shuna/gws/internal/state"
+	"github.com/fairy-pitta/portree/internal/config"
+	"github.com/fairy-pitta/portree/internal/git"
+	"github.com/fairy-pitta/portree/internal/state"
 )
 
 // Resolver maps slug + proxy_port to real backend port.
@@ -42,7 +42,7 @@ func (r *Resolver) Resolve(slug string, proxyPort int) (int, error) {
 
 	// Look up the real port from state.
 	var port int
-	r.store.WithLock(func() error {
+	_ = r.store.WithLock(func() error {
 		st, e := r.store.Load()
 		if e != nil {
 			return e
@@ -62,7 +62,7 @@ func (r *Resolver) AvailableSlugs() ([]string, error) {
 	var slugs []string
 	var err error
 
-	r.store.WithLock(func() error {
+	_ = r.store.WithLock(func() error {
 		st, e := r.store.Load()
 		if e != nil {
 			err = e
@@ -91,7 +91,7 @@ func (r *Resolver) slugToBranch(slug string) (string, error) {
 	var branch string
 	var err error
 
-	r.store.WithLock(func() error {
+	_ = r.store.WithLock(func() error {
 		st, e := r.store.Load()
 		if e != nil {
 			err = e

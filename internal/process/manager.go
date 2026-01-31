@@ -4,10 +4,10 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/shuna/gws/internal/config"
-	"github.com/shuna/gws/internal/git"
-	"github.com/shuna/gws/internal/port"
-	"github.com/shuna/gws/internal/state"
+	"github.com/fairy-pitta/portree/internal/config"
+	"github.com/fairy-pitta/portree/internal/git"
+	"github.com/fairy-pitta/portree/internal/port"
+	"github.com/fairy-pitta/portree/internal/state"
 )
 
 // Manager coordinates starting and stopping services across worktrees.
@@ -106,7 +106,7 @@ func (m *Manager) StartServices(tree *git.Worktree, serviceFilter string) []Star
 			key := tree.Branch + ":" + svcName
 			m.runners[key] = runner
 
-			m.store.WithLock(func() error {
+			_ = m.store.WithLock(func() error {
 				st, e := m.store.Load()
 				if e != nil {
 					return e
@@ -135,7 +135,7 @@ func (m *Manager) StopServices(tree *git.Worktree, serviceFilter string) []Start
 			delete(m.runners, key)
 		} else {
 			// Fall back to PID from state.
-			m.store.WithLock(func() error {
+			_ = m.store.WithLock(func() error {
 				st, e := m.store.Load()
 				if e != nil {
 					return e
@@ -150,7 +150,7 @@ func (m *Manager) StopServices(tree *git.Worktree, serviceFilter string) []Start
 		}
 
 		// Update state to stopped.
-		m.store.WithLock(func() error {
+		_ = m.store.WithLock(func() error {
 			st, e := m.store.Load()
 			if e != nil {
 				return e
@@ -172,7 +172,7 @@ func (m *Manager) StopServices(tree *git.Worktree, serviceFilter string) []Start
 
 // cleanStale checks if a previously recorded process is dead and cleans up state.
 func (m *Manager) cleanStale(branch, service string) {
-	m.store.WithLock(func() error {
+	_ = m.store.WithLock(func() error {
 		st, err := m.store.Load()
 		if err != nil {
 			return err

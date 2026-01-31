@@ -8,8 +8,8 @@ import (
 	"sort"
 	"syscall"
 
-	"github.com/shuna/gws/internal/proxy"
-	"github.com/shuna/gws/internal/state"
+	"github.com/fairy-pitta/portree/internal/proxy"
+	"github.com/fairy-pitta/portree/internal/state"
 	"github.com/spf13/cobra"
 )
 
@@ -23,7 +23,7 @@ var proxyStartCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start the reverse proxy",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		stateDir := filepath.Join(repoRoot, ".gws")
+		stateDir := filepath.Join(repoRoot, ".portree")
 		store, err := state.NewFileStore(stateDir)
 		if err != nil {
 			return err
@@ -43,7 +43,7 @@ var proxyStartCmd = &cobra.Command{
 		}
 
 		// Update state.
-		store.WithLock(func() error {
+		_ = store.WithLock(func() error {
 			st, e := store.Load()
 			if e != nil {
 				return e
@@ -75,9 +75,9 @@ var proxyStartCmd = &cobra.Command{
 		<-sig
 
 		fmt.Println("\nStopping proxy...")
-		server.Stop()
+		_ = server.Stop()
 
-		store.WithLock(func() error {
+		_ = store.WithLock(func() error {
 			st, e := store.Load()
 			if e != nil {
 				return e
@@ -95,14 +95,14 @@ var proxyStopCmd = &cobra.Command{
 	Use:   "stop",
 	Short: "Stop the reverse proxy",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		stateDir := filepath.Join(repoRoot, ".gws")
+		stateDir := filepath.Join(repoRoot, ".portree")
 		store, err := state.NewFileStore(stateDir)
 		if err != nil {
 			return err
 		}
 
 		var st *state.State
-		store.WithLock(func() error {
+		_ = store.WithLock(func() error {
 			st, err = store.Load()
 			return err
 		})
@@ -111,10 +111,10 @@ var proxyStopCmd = &cobra.Command{
 			// Send SIGTERM to the proxy process.
 			proc, err := os.FindProcess(st.Proxy.PID)
 			if err == nil {
-				proc.Signal(syscall.SIGTERM)
+				_ = proc.Signal(syscall.SIGTERM)
 			}
 
-			store.WithLock(func() error {
+			_ = store.WithLock(func() error {
 				st, e := store.Load()
 				if e != nil {
 					return e

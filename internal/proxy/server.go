@@ -45,12 +45,12 @@ func (p *ProxyServer) Start(proxyPorts map[string]int) error {
 		ln, err := net.Listen("tcp", srv.Addr)
 		if err != nil {
 			// Clean up already started servers.
-			p.stopLocked()
+			_ = p.stopLocked()
 			return fmt.Errorf("proxy: cannot listen on %s: %w", srv.Addr, err)
 		}
 
 		p.servers = append(p.servers, srv)
-		go srv.Serve(ln)
+		go func() { _ = srv.Serve(ln) }()
 	}
 
 	return nil
@@ -81,7 +81,7 @@ func (p *ProxyServer) handler(proxyPort int) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		slug := ParseSlugFromHost(r.Host)
 		if slug == "" {
-			http.Error(w, "gws: missing subdomain in Host header.\n"+
+			http.Error(w, "portree: missing subdomain in Host header.\n"+
 				"Use http://<branch-slug>.localhost:"+strconv.Itoa(proxyPort), http.StatusBadRequest)
 			return
 		}
@@ -89,7 +89,7 @@ func (p *ProxyServer) handler(proxyPort int) http.Handler {
 		backendPort, err := p.resolver.Resolve(slug, proxyPort)
 		if err != nil {
 			slugs, _ := p.resolver.AvailableSlugs()
-			msg := fmt.Sprintf("gws: no worktree found for slug %q\nAvailable: %s",
+			msg := fmt.Sprintf("portree: no worktree found for slug %q\nAvailable: %s",
 				slug, strings.Join(slugs, ", "))
 			http.Error(w, msg, http.StatusNotFound)
 			return

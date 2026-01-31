@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/shuna/gws/internal/config"
-	"github.com/shuna/gws/internal/git"
+	"github.com/fairy-pitta/portree/internal/config"
+	"github.com/fairy-pitta/portree/internal/git"
 	"github.com/spf13/cobra"
 )
 
@@ -16,9 +16,9 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "gws",
+	Use:   "portree",
 	Short: "Git Worktree Server Manager",
-	Long:  "gws manages multiple dev servers per git worktree with automatic port allocation and reverse proxy routing.",
+	Long:  "portree manages multiple dev servers per git worktree with automatic port allocation and reverse proxy routing.",
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {

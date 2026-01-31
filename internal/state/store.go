@@ -39,7 +39,7 @@ type FileStore struct {
 	lockPath string
 }
 
-// NewFileStore creates a new FileStore. The dir is typically .gws/ under the main worktree root.
+// NewFileStore creates a new FileStore. The dir is typically .portree/ under the main worktree root.
 func NewFileStore(dir string) (*FileStore, error) {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, fmt.Errorf("creating state directory: %w", err)
@@ -94,7 +94,7 @@ func (s *FileStore) WithLock(fn func() error) error {
 	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
 		return fmt.Errorf("acquiring lock: %w", err)
 	}
-	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+	defer func() { _ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN) }()
 
 	return fn()
 }

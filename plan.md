@@ -1,4 +1,4 @@
-# gws - Git Worktree Server Manager 実装計画
+# portree - Git Worktree Server Manager 実装計画
 
 ## 概要
 
@@ -7,7 +7,7 @@ worktree 単位でフロントエンド・バックエンドなど複数サー�
 `branch-name.localhost:<proxy_port>` でリバースプロキシ経由アクセスできる。
 
 - **言語**: Go
-- **名前**: `gws`
+- **名前**: `portree`
 - **ライセンス**: MIT
 
 ## 想定ユースケース
@@ -16,7 +16,7 @@ worktree 単位でフロントエンド・バックエンドなど複数サー�
 my-project/              # git repo (main worktree)
 ├── frontend/            # Next.js
 ├── backend/             # Django
-└── .gws.toml
+└── .portree.toml
 
 ../my-project-feature-auth/   # git worktree (feature/auth)
 ├── frontend/
@@ -32,37 +32,37 @@ branch ごとにポートが異なるので衝突しない。
 ## ユーザーコマンド
 
 ```
-gws init                          # .gws.toml を生成
-gws up [--all] [--service NAME]   # dev server 起動
-gws down [--all] [--service NAME] # dev server 停止
-gws ls                            # worktree × service 一覧 + 状態表示
-gws dash                          # TUI ダッシュボード
-gws proxy start                   # リバースプロキシ起動
-gws proxy stop                    # リバースプロキシ停止
-gws open [--service NAME]         # ブラウザでアクセス
-gws version                       # バージョン表示
+portree init                          # .portree.toml を生成
+portree up [--all] [--service NAME]   # dev server 起動
+portree down [--all] [--service NAME] # dev server 停止
+portree ls                            # worktree × service 一覧 + 状態表示
+portree dash                          # TUI ダッシュボード
+portree proxy start                   # リバースプロキシ起動
+portree proxy stop                    # リバースプロキシ停止
+portree open [--service NAME]         # ブラウザでアクセス
+portree version                       # バージョン表示
 ```
 
 ### コマンド詳細
 
-| コマンド          | 引数/フラグ                                              | 説明                                                      |
-| ----------------- | -------------------------------------------------------- | --------------------------------------------------------- |
-| `gws init`        | —                                                        | `.gws.toml` をカレントリポジトリのルートに生成            |
-| `gws up`          | `--all`: 全 worktree, `--service NAME`: 特定サービスのみ | デフォルトは現在の worktree の全サービスを起動            |
-| `gws down`        | 同上                                                     | 起動中のサーバーを停止                                    |
-| `gws ls`          | —                                                        | 全 worktree × 全 service の一覧 (ポート、PID、状態)       |
-| `gws dash`        | —                                                        | Bubble Tea TUI ダッシュボード                             |
-| `gws proxy start` | —                                                        | 全 `proxy_port` でリバースプロキシ起動 (バックグラウンド) |
-| `gws proxy stop`  | —                                                        | リバースプロキシ停止                                      |
-| `gws open`        | `--service NAME` (default: 最初のサービス)               | ブラウザで `branch.localhost:proxy_port` を開く           |
-| `gws version`     | —                                                        | バージョン表示 (ldflags 埋め込み)                         |
+| コマンド              | 引数/フラグ                                              | 説明                                                      |
+| --------------------- | -------------------------------------------------------- | --------------------------------------------------------- |
+| `portree init`        | —                                                        | `.portree.toml` をカレントリポジトリのルートに生成        |
+| `portree up`          | `--all`: 全 worktree, `--service NAME`: 特定サービスのみ | デフォルトは現在の worktree の全サービスを起動            |
+| `portree down`        | 同上                                                     | 起動中のサーバーを停止                                    |
+| `portree ls`          | —                                                        | 全 worktree × 全 service の一覧 (ポート、PID、状態)       |
+| `portree dash`        | —                                                        | Bubble Tea TUI ダッシュボード                             |
+| `portree proxy start` | —                                                        | 全 `proxy_port` でリバースプロキシ起動 (バックグラウンド) |
+| `portree proxy stop`  | —                                                        | リバースプロキシ停止                                      |
+| `portree open`        | `--service NAME` (default: 最初のサービス)               | ブラウザで `branch.localhost:proxy_port` を開く           |
+| `portree version`     | —                                                        | バージョン表示 (ldflags 埋め込み)                         |
 
 ---
 
-## 設定ファイル (.gws.toml)
+## 設定ファイル (.portree.toml)
 
 ```toml
-# gws - Git Worktree Server Manager configuration
+# portree - Git Worktree Server Manager configuration
 
 # --- サービス定義 ---
 # worktree ごとに起動するサービスを定義する。
@@ -130,7 +130,7 @@ type WTServiceOverride struct {
 ## ディレクトリ構成
 
 ```
-gws/
+portree/
 ├── main.go
 ├── go.mod
 ├── Makefile
@@ -140,16 +140,16 @@ gws/
 │   └── release.yaml
 ├── cmd/
 │   ├── root.go          # PersistentPreRunE: repo root 検出, config 読込
-│   ├── init.go          # gws init
-│   ├── up.go            # gws up [--all] [--service]
-│   ├── down.go          # gws down [--all] [--service]
-│   ├── ls.go            # gws ls
-│   ├── dash.go          # gws dash
-│   ├── open.go          # gws open [--service]
-│   ├── proxy.go         # gws proxy start|stop
-│   └── version.go       # gws version
+│   ├── init.go          # portree init
+│   ├── up.go            # portree up [--all] [--service]
+│   ├── down.go          # portree down [--all] [--service]
+│   ├── ls.go            # portree ls
+│   ├── dash.go          # portree dash
+│   ├── open.go          # portree open [--service]
+│   ├── proxy.go         # portree proxy start|stop
+│   └── version.go       # portree version
 ├── internal/
-│   ├── config/          # .gws.toml の読込・検証
+│   ├── config/          # .portree.toml の読込・検証
 │   │   └── config.go
 │   ├── git/             # worktree 検出
 │   │   ├── worktree.go  # ListWorktrees, CurrentWorktree, BranchSlug
@@ -189,8 +189,8 @@ gws/
 - ポートレンジ (`port_range`)
 - プロキシポート (`proxy_port`)
 
-を持つ。`gws up` は現在の worktree の全サービスを起動、
-`gws up --service frontend` で特定サービスのみ起動できる。
+を持つ。`portree up` は現在の worktree の全サービスを起動、
+`portree up --service frontend` で特定サービスのみ起動できる。
 
 ### 2. ポート割り当て
 
@@ -201,7 +201,7 @@ port = fnv32(branch_name) % (max - min + 1) + min
 ```
 
 衝突時は linear probe で次の空きポートを探す。
-割り当ては `.gws/state.json` に永続化し、再起動間で安定させる。
+割り当ては `.portree/state.json` に永続化し、再起動間で安定させる。
 
 worktree ごとの固定ポートは `[worktrees."branch".services.name]` の `port` で上書き可能。
 
@@ -209,14 +209,14 @@ worktree ごとの固定ポートは `[worktrees."branch".services.name]` の `p
 
 各プロセスに以下の環境変数を自動注入する:
 
-| 変数                 | 例                                                   | 説明                                     |
-| -------------------- | ---------------------------------------------------- | ---------------------------------------- |
-| `PORT`               | `3117`                                               | そのサービスの割り当てポート             |
-| `GWS_BRANCH`         | `feature/auth`                                       | ブランチ名                               |
-| `GWS_BRANCH_SLUG`    | `feature-auth`                                       | URL-safe スラッグ                        |
-| `GWS_SERVICE`        | `frontend`                                           | サービス名                               |
-| `GWS_<SERVICE>_PORT` | `GWS_FRONTEND_PORT=3117`                             | 同一 worktree の各サービスの実ポート     |
-| `GWS_<SERVICE>_URL`  | `GWS_BACKEND_URL=http://feature-auth.localhost:8000` | 同一 worktree の各サービスのプロキシ URL |
+| 変数                | 例                                                  | 説明                                     |
+| ------------------- | --------------------------------------------------- | ---------------------------------------- |
+| `PORT`              | `3117`                                              | そのサービスの割り当てポート             |
+| `PT_BRANCH`         | `feature/auth`                                      | ブランチ名                               |
+| `PT_BRANCH_SLUG`    | `feature-auth`                                      | URL-safe スラッグ                        |
+| `PT_SERVICE`        | `frontend`                                          | サービス名                               |
+| `PT_<SERVICE>_PORT` | `PT_FRONTEND_PORT=3117`                             | 同一 worktree の各サービスの実ポート     |
+| `PT_<SERVICE>_URL`  | `PT_BACKEND_URL=http://feature-auth.localhost:8000` | 同一 worktree の各サービスのプロキシ URL |
 
 これにより、frontend から backend への通信設定を環境変数で自動解決できる:
 
@@ -227,7 +227,7 @@ module.exports = {
     return [
       {
         source: "/api/:path*",
-        destination: `${process.env.GWS_BACKEND_URL}/api/:path*`,
+        destination: `${process.env.PT_BACKEND_URL}/api/:path*`,
       },
     ];
   },
@@ -239,12 +239,12 @@ module.exports = {
 - `sh -c "command"` で起動 (`dir` に `cd` した上で)
 - `Setpgid: true` でプロセスグループ作成
 - 停止時: SIGTERM → 10 秒待機 → SIGKILL (プロセスグループ全体)
-- stdout/stderr は `.gws/logs/{branch_slug}.{service}.log` に書き出し
+- stdout/stderr は `.portree/logs/{branch_slug}.{service}.log` に書き出し
 - PID は `state.json` に記録
 
 ### 5. 状態管理 (state.json)
 
-`.gws/state.json` に以下を保存:
+`.portree/state.json` に以下を保存:
 
 ```json
 {
@@ -334,7 +334,7 @@ RFC 6761 により、最新ブラウザは `*.localhost` を `127.0.0.1` に解�
 | 3   | `internal/git/worktree.go`  | `Worktree` 構造体, `ListWorktrees()`, `CurrentWorktree()`, `BranchSlug()`                 |
 | 4   | `internal/config/config.go` | `Config` 構造体 (複数 services 対応), `Load()`, `DefaultConfig()`, `Validate()`, `Init()` |
 | 5   | `cmd/root.go`               | Cobra ルートコマンド + `PersistentPreRunE` (repo root 検出, config 読込)                  |
-| 6   | `cmd/init.go`               | `gws init` — `.gws.toml` スキャフォールド                                                 |
+| 6   | `cmd/init.go`               | `portree init` — `.portree.toml` スキャフォールド                                         |
 | 7   | `cmd/ls.go` (v1)            | worktree × service 一覧表示 (静的情報のみ)                                                |
 
 ### Phase 2: プロセス管理
@@ -346,8 +346,8 @@ RFC 6761 により、最新ブラウザは `*.localhost` を `127.0.0.1` に解�
 | 10  | `internal/port/registry.go`   | `Registry` — 割り当て管理・永続化・解放                             |
 | 11  | `internal/process/runner.go`  | `Runner` — 単一プロセスの起動/停止/ログ管理                         |
 | 12  | `internal/process/manager.go` | `Manager` — 複数 Runner の統括 (Start/Stop/Status/StartAll/StopAll) |
-| 13  | `cmd/up.go`                   | `gws up [--all] [--service NAME]`                                   |
-| 14  | `cmd/down.go`                 | `gws down [--all] [--service NAME]`                                 |
+| 13  | `cmd/up.go`                   | `portree up [--all] [--service NAME]`                               |
+| 14  | `cmd/down.go`                 | `portree down [--all] [--service NAME]`                             |
 | 15  | `cmd/ls.go` (v2)              | ステータス・ポート・PID 列追加                                      |
 
 ### Phase 3: リバースプロキシ + ブラウザ
@@ -356,9 +356,9 @@ RFC 6761 により、最新ブラウザは `*.localhost` を `127.0.0.1` に解�
 | --- | ---------------------------- | --------------------------------------------------------------------- |
 | 16  | `internal/proxy/resolver.go` | `Resolver` — slug + proxy_port → 実ポート解決                         |
 | 17  | `internal/proxy/server.go`   | `ProxyServer` — HTTP サーバー + ReverseProxy (proxy_port ごとに 1 つ) |
-| 18  | `cmd/proxy.go`               | `gws proxy start\|stop`                                               |
+| 18  | `cmd/proxy.go`               | `portree proxy start\|stop`                                           |
 | 19  | `internal/browser/open.go`   | OS 検出 + `open` / `xdg-open`                                         |
-| 20  | `cmd/open.go`                | `gws open [--service NAME]`                                           |
+| 20  | `cmd/open.go`                | `portree open [--service NAME]`                                       |
 
 ### Phase 4: TUI ダッシュボード
 
@@ -369,19 +369,19 @@ RFC 6761 により、最新ブラウザは `*.localhost` を `127.0.0.1` に解�
 | 23  | `internal/tui/keys.go`      | キーバインド定義                                   |
 | 24  | `internal/tui/dashboard.go` | テーブルモデル (worktree × service 行)             |
 | 25  | `internal/tui/app.go`       | トップレベル Model (Init/Update/View)              |
-| 26  | `cmd/dash.go`               | `gws dash`                                         |
+| 26  | `cmd/dash.go`               | `portree dash`                                     |
 
 ### Phase 5: 仕上げ + リリース
 
-| #   | ファイル                         | 内容                                         |
-| --- | -------------------------------- | -------------------------------------------- |
-| 27  | `cmd/version.go`                 | `gws version` — ldflags でバージョン埋め込み |
-| 28  | `Makefile`                       | build / test / lint ターゲット               |
-| 29  | `.goreleaser.yaml`               | GoReleaser 設定                              |
-| 30  | `.github/workflows/ci.yaml`      | CI (test + lint + build)                     |
-| 31  | `.github/workflows/release.yaml` | タグ push 時 GoReleaser でリリース           |
-| 32  | `README.md` + `README.ja.md`     | 英語 + 日本語ドキュメント                    |
-| 33  | テスト                           | unit test + integration test (網羅的)        |
+| #   | ファイル                         | 内容                                             |
+| --- | -------------------------------- | ------------------------------------------------ |
+| 27  | `cmd/version.go`                 | `portree version` — ldflags でバージョン埋め込み |
+| 28  | `Makefile`                       | build / test / lint ターゲット                   |
+| 29  | `.goreleaser.yaml`               | GoReleaser 設定                                  |
+| 30  | `.github/workflows/ci.yaml`      | CI (test + lint + build)                         |
+| 31  | `.github/workflows/release.yaml` | タグ push 時 GoReleaser でリリース               |
+| 32  | `README.md` + `README.ja.md`     | 英語 + 日本語ドキュメント                        |
+| 33  | テスト                           | unit test + integration test (網羅的)            |
 
 ---
 
@@ -395,22 +395,22 @@ Phase/ステップごとに逐一コミットを行う。1つの論理的変更 
 | Phase 1-2,3      | `feat: add git repo and worktree detection`                  |
 | Phase 1-4        | `feat: add multi-service config loading and validation`      |
 | Phase 1-5        | `feat: add cobra root command with repo detection`           |
-| Phase 1-6        | `feat: add gws init command`                                 |
-| Phase 1-7        | `feat: add gws ls command (static info)`                     |
+| Phase 1-6        | `feat: add portree init command`                             |
+| Phase 1-7        | `feat: add portree ls command (static info)`                 |
 | Phase 1 テスト   | `test: add unit tests for git and config packages`           |
 | Phase 2-8        | `feat: add JSON file-based state store with flock`           |
 | Phase 2-9,10     | `feat: add hash-based port allocator and registry`           |
 | Phase 2-11,12    | `feat: add process runner and manager`                       |
-| Phase 2-13,14    | `feat: add gws up and gws down commands`                     |
-| Phase 2-15       | `feat: enhance gws ls with status, port, PID columns`        |
+| Phase 2-13,14    | `feat: add portree up and portree down commands`             |
+| Phase 2-15       | `feat: enhance portree ls with status, port, PID columns`    |
 | Phase 2 テスト   | `test: add unit tests for state, port, and process packages` |
 | Phase 3-16,17    | `feat: add reverse proxy with subdomain routing`             |
-| Phase 3-18       | `feat: add gws proxy start/stop commands`                    |
-| Phase 3-19,20    | `feat: add browser open utility and gws open command`        |
+| Phase 3-18       | `feat: add portree proxy start/stop commands`                |
+| Phase 3-19,20    | `feat: add browser open utility and portree open command`    |
 | Phase 3 テスト   | `test: add unit tests for proxy and browser packages`        |
 | Phase 4          | `feat: add TUI dashboard with bubbletea`                     |
 | Phase 4 テスト   | `test: add tests for TUI components`                         |
-| Phase 5-27       | `feat: add gws version command with ldflags`                 |
+| Phase 5-27       | `feat: add portree version command with ldflags`             |
 | Phase 5-28,29    | `chore: add Makefile and goreleaser config`                  |
 | Phase 5-30,31    | `ci: add GitHub Actions for CI and release`                  |
 | Phase 5-32       | `docs: add README.md (EN) and README.ja.md (JA)`             |
@@ -493,7 +493,7 @@ Phase/ステップごとに逐一コミットを行う。1つの論理的変更 
 | `TestRunnerStopNotRunning`       | 未起動で停止してもエラーなし                |
 | `TestRunnerIsRunning`            | 起動中 true、停止後 false、PID 死亡で false |
 | `TestRunnerLogOutput`            | stdout/stderr がログファイルに書き出される  |
-| `TestRunnerEnvironment`          | PORT, GWS\_\* 環境変数が注入される          |
+| `TestRunnerEnvironment`          | PORT, PT\_\* 環境変数が注入される           |
 | `TestRunnerWorkingDir`           | dir 設定が正しく適用される                  |
 | `TestManagerStartAll`            | 全サービス起動                              |
 | `TestManagerStopAll`             | 全サービス停止                              |
@@ -533,17 +533,17 @@ Phase/ステップごとに逐一コミットを行う。1つの論理的変更 
 
 #### `cmd/` — `cmd_test.go` (統合テスト)
 
-| テスト名                       | 内容                                                |
-| ------------------------------ | --------------------------------------------------- |
-| `TestInitCommand`              | 一時 repo で `gws init` → `.gws.toml` 生成確認      |
-| `TestInitCommandAlreadyExists` | 既存ファイルでエラー                                |
-| `TestLsCommand`                | worktree 一覧の出力フォーマット確認                 |
-| `TestUpDownCommand`            | `gws up` → プロセス起動確認 → `gws down` → 停止確認 |
-| `TestUpAllCommand`             | `--all` で複数 worktree の全サービス起動            |
-| `TestUpServiceFilter`          | `--service frontend` でフロントのみ起動             |
-| `TestVersionCommand`           | バージョン文字列出力                                |
-| `TestRootNoGitRepo`            | git repo 外で適切なエラー                           |
-| `TestRootNoConfig`             | config なしで適切なエラー (init 以外)               |
+| テスト名                       | 内容                                                        |
+| ------------------------------ | ----------------------------------------------------------- |
+| `TestInitCommand`              | 一時 repo で `portree init` → `.portree.toml` 生成確認      |
+| `TestInitCommandAlreadyExists` | 既存ファイルでエラー                                        |
+| `TestLsCommand`                | worktree 一覧の出力フォーマット確認                         |
+| `TestUpDownCommand`            | `portree up` → プロセス起動確認 → `portree down` → 停止確認 |
+| `TestUpAllCommand`             | `--all` で複数 worktree の全サービス起動                    |
+| `TestUpServiceFilter`          | `--service frontend` でフロントのみ起動                     |
+| `TestVersionCommand`           | バージョン文字列出力                                        |
+| `TestRootNoGitRepo`            | git repo 外で適切なエラー                                   |
+| `TestRootNoConfig`             | config なしで適切なエラー (init 以外)                       |
 
 ---
 
@@ -551,10 +551,10 @@ Phase/ステップごとに逐一コミットを行う。1つの論理的変更 
 
 ### `README.md` (英語)
 
-- Overview / What is gws
+- Overview / What is portree
 - Features (multi-service, auto port, subdomain proxy, TUI, env injection)
 - Quick Start (install → init → configure → up → proxy → open)
-- Configuration reference (.gws.toml full spec)
+- Configuration reference (.portree.toml full spec)
 - Commands reference (全コマンドの usage)
 - Environment Variables (自動注入変数一覧)
 - How It Works (architecture diagram: worktree → services → ports → proxy)
@@ -575,8 +575,8 @@ Phase/ステップごとに逐一コミットを行う。1つの論理的変更 
 
 ```bash
 $ cd my-project
-$ gws init
-Created .gws.toml in /home/user/my-project
+$ portree init
+Created .portree.toml in /home/user/my-project
 Edit the file to configure your services.
 ```
 
@@ -584,13 +584,13 @@ Edit the file to configure your services.
 
 ```bash
 # 現在の worktree の全サービスを起動
-$ gws up
+$ portree up
 Starting frontend (port 3100) in /home/user/my-project/frontend ...
 Starting backend (port 8100) in /home/user/my-project/backend ...
 ✓ 2 services started for main
 
 # 全 worktree の全サービスを起動
-$ gws up --all
+$ portree up --all
 Starting frontend (port 3100) for main ...
 Starting backend (port 8100) for main ...
 Starting frontend (port 3117) for feature/auth ...
@@ -598,7 +598,7 @@ Starting backend (port 8104) for feature/auth ...
 ✓ 4 services started
 
 # 特定サービスのみ
-$ gws up --service backend
+$ portree up --service backend
 Starting backend (port 8100) in /home/user/my-project/backend ...
 ✓ 1 service started for main
 ```
@@ -606,7 +606,7 @@ Starting backend (port 8100) in /home/user/my-project/backend ...
 ### 一覧表示
 
 ```bash
-$ gws ls
+$ portree ls
 WORKTREE        SERVICE    PORT   STATUS    PID
 main            frontend   3100   running   12345
 main            backend    8100   running   12346
@@ -617,7 +617,7 @@ feature/auth    backend    8104   stopped   —
 ### プロキシ
 
 ```bash
-$ gws proxy start
+$ portree proxy start
 Proxy started:
   :3000 → frontend services
   :8000 → backend services
@@ -628,29 +628,29 @@ Access:
   http://feature-auth.localhost:3000 → frontend (feature/auth)
   http://feature-auth.localhost:8000 → backend (feature/auth)
 
-$ gws proxy stop
+$ portree proxy stop
 Proxy stopped.
 ```
 
 ### ブラウザを開く
 
 ```bash
-$ gws open
+$ portree open
 Opening http://feature-auth.localhost:3000 ...
 
-$ gws open --service backend
+$ portree open --service backend
 Opening http://feature-auth.localhost:8000 ...
 ```
 
 ### 停止
 
 ```bash
-$ gws down
+$ portree down
 Stopping frontend (pid 12345) ...
 Stopping backend (pid 12346) ...
 ✓ 2 services stopped for main
 
-$ gws down --all
+$ portree down --all
 Stopping all services ...
 ✓ 4 services stopped
 ```
@@ -660,7 +660,7 @@ Stopping all services ...
 ## TUI ダッシュボード詳細
 
 ```
-╭─ gws dashboard ──────────────────────────────────────────────╮
+╭─ portree dashboard ──────────────────────────────────────────────╮
 │                                                               │
 │  WORKTREE        SERVICE    PORT   STATUS      PID            │
 │  ──────────────────────────────────────────────────────────── │
@@ -696,27 +696,27 @@ Stopping all services ...
 
 ## 環境変数注入の詳細
 
-`gws up` でプロセスを起動する際、以下の環境変数をマージする:
+`portree up` でプロセスを起動する際、以下の環境変数をマージする:
 
 1. **OS 環境変数** (親プロセスから継承)
 2. **`[env]`** (グローバル設定)
 3. **`[worktrees."branch".services.name.env]`** (worktree × service 上書き)
-4. **GWS 自動注入変数**:
+4. **PT 自動注入変数**:
 
 ```bash
 # 基本情報
 PORT=3117
-GWS_BRANCH=feature/auth
-GWS_BRANCH_SLUG=feature-auth
-GWS_SERVICE=frontend
+PT_BRANCH=feature/auth
+PT_BRANCH_SLUG=feature-auth
+PT_SERVICE=frontend
 
 # 同一 worktree の各サービスの実ポート
-GWS_FRONTEND_PORT=3117
-GWS_BACKEND_PORT=8104
+PT_FRONTEND_PORT=3117
+PT_BACKEND_PORT=8104
 
 # 同一 worktree の各サービスのプロキシ URL
-GWS_FRONTEND_URL=http://feature-auth.localhost:3000
-GWS_BACKEND_URL=http://feature-auth.localhost:8000
+PT_FRONTEND_URL=http://feature-auth.localhost:3000
+PT_BACKEND_URL=http://feature-auth.localhost:8000
 ```
 
 優先順位: 4 > 3 > 2 > 1 (後の設定が優先)
@@ -727,7 +727,7 @@ GWS_BACKEND_URL=http://feature-auth.localhost:8000
 
 ### 起動モデル
 
-`gws proxy start` は **別プロセス** としてプロキシを起動し、PID を `state.json` に記録する。
+`portree proxy start` は **別プロセス** としてプロキシを起動し、PID を `state.json` に記録する。
 
 各 `proxy_port` (例: 3000, 8000) に対して goroutine で HTTP サーバーを起動:
 
@@ -764,7 +764,7 @@ Request: GET http://feature-auth.localhost:3000/api/users
 
 ```
 404 Not Found
-gws: no worktree found for slug "unknown-branch"
+portree: no worktree found for slug "unknown-branch"
 Available: main, feature-auth
 ```
 
@@ -777,7 +777,7 @@ WebSocket の `Upgrade` ヘッダーはそのままパススルーされる。
 
 ## ファイルロックと同時実行安全性
 
-複数の `gws` コマンドが同時実行される可能性がある (例: 2 つのターミナルで `gws up`)。
+複数の `portree` コマンドが同時実行される可能性がある (例: 2 つのターミナルで `portree up`)。
 
 `state.json` の読み書きは `syscall.Flock` で排他ロック:
 
@@ -795,26 +795,26 @@ func (s *FileStore) WithLock(fn func() error) error {
 
 ## エラーハンドリング
 
-| 状況               | 対応                                                          |
-| ------------------ | ------------------------------------------------------------- |
-| `.gws.toml` がない | `gws init` を案内するエラーメッセージ                         |
-| git repo でない    | 明確なエラーメッセージ                                        |
-| ポートが既に使用中 | 次の空きポートで再試行、ユーザーに通知                        |
-| プロセスが起動失敗 | エラーログ表示、他のサービスは続行                            |
-| 孤児プロセス検出   | `gws up` 時に古い PID の生存確認、死んでいれば state クリーン |
-| state.json 破損    | バックアップから復元、または初期化                            |
+| 状況                   | 対応                                                              |
+| ---------------------- | ----------------------------------------------------------------- |
+| `.portree.toml` がない | `portree init` を案内するエラーメッセージ                         |
+| git repo でない        | 明確なエラーメッセージ                                            |
+| ポートが既に使用中     | 次の空きポートで再試行、ユーザーに通知                            |
+| プロセスが起動失敗     | エラーログ表示、他のサービスは続行                                |
+| 孤児プロセス検出       | `portree up` 時に古い PID の生存確認、死んでいれば state クリーン |
+| state.json 破損        | バックアップから復元、または初期化                                |
 
 ---
 
 ## 検証方法
 
-1. `gws init` で `.gws.toml` が生成されることを確認
-2. git worktree を 3 つ作成し `gws ls` で全て表示されることを確認
-3. `gws up` で現在の worktree の frontend + backend が起動し、異なるポートで動作
-4. `gws up --all` で全 worktree の全サービスが起動
-5. 各プロセスに `PORT`, `GWS_*` 環境変数が注入されていることを確認
-6. `gws proxy start` 後、`curl http://branch-name.localhost:3000` でフロント、`:8000` でバックエンドにプロキシ経由アクセス
-7. frontend プロセスから `GWS_BACKEND_URL` を使ってバックエンドに通信できることを確認
-8. `gws dash` で TUI 表示、キー操作で start/stop/restart が機能
-9. `gws down --all` で全プロセスがクリーンに終了、孤児プロセスなし
+1. `portree init` で `.portree.toml` が生成されることを確認
+2. git worktree を 3 つ作成し `portree ls` で全て表示されることを確認
+3. `portree up` で現在の worktree の frontend + backend が起動し、異なるポートで動作
+4. `portree up --all` で全 worktree の全サービスが起動
+5. 各プロセスに `PORT`, `PT_\**` 環境変数が注入されていることを確認
+6. `portree proxy start` 後、`curl http://branch-name.localhost:3000` でフロント、`:8000` でバックエンドにプロキシ経由アクセス
+7. frontend プロセスから `PT_BACKEND_URL` を使ってバックエンドに通信できることを確認
+8. `portree dash` で TUI 表示、キー操作で start/stop/restart が機能
+9. `portree down --all` で全プロセスがクリーンに終了、孤児プロセスなし
 10. `go test ./... -race` で全テスト通過

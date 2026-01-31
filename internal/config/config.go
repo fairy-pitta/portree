@@ -8,9 +8,9 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-const FileName = ".gws.toml"
+const FileName = ".portree.toml"
 
-// Config represents the .gws.toml configuration file.
+// Config represents the .portree.toml configuration file.
 type Config struct {
 	Services  map[string]ServiceConfig `toml:"services"`
 	Env       map[string]string        `toml:"env"`
@@ -68,7 +68,7 @@ func Load(repoRoot string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("%s not found in %s; run 'gws init' first", FileName, repoRoot)
+			return nil, fmt.Errorf("%s not found in %s; run 'portree init' first", FileName, repoRoot)
 		}
 		return nil, fmt.Errorf("reading config: %w", err)
 	}
@@ -137,15 +137,15 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// Init creates a default .gws.toml file in the given directory.
+// Init creates a default .portree.toml file in the given directory.
 func Init(dir string) (string, error) {
 	path := filepath.Join(dir, FileName)
 	if _, err := os.Stat(path); err == nil {
 		return path, fmt.Errorf("%s already exists", FileName)
 	}
 
-	content := `# gws - Git Worktree Server Manager configuration
-# See: https://github.com/shuna/gws
+	content := `# portree - Git Worktree Server Manager configuration
+# See: https://github.com/fairy-pitta/portree
 
 # --- Service definitions ---
 # Define services to run per worktree.

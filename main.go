@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/shuna/gws/cmd"
+	"github.com/fairy-pitta/portree/cmd"
 )
 
 func main() {

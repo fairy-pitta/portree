@@ -1,8 +1,8 @@
 package port
 
 import (
-	"github.com/shuna/gws/internal/config"
-	"github.com/shuna/gws/internal/state"
+	"github.com/fairy-pitta/portree/internal/config"
+	"github.com/fairy-pitta/portree/internal/state"
 )
 
 // Registry manages port assignments backed by state.

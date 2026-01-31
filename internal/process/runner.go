@@ -73,7 +73,7 @@ func (r *Runner) Start() (int, error) {
 	}
 
 	// Detach: don't wait in this goroutine. The process runs independently.
-	go r.cmd.Wait()
+	go func() { _ = r.cmd.Wait() }()
 
 	return r.cmd.Process.Pid, nil
 }
@@ -96,12 +96,12 @@ func (r *Runner) Stop() error {
 	}
 
 	// Send SIGTERM to the process group.
-	syscall.Kill(-pgid, syscall.SIGTERM)
+	_ = syscall.Kill(-pgid, syscall.SIGTERM)
 
 	// Wait for process to exit.
 	done := make(chan struct{})
 	go func() {
-		r.cmd.Wait()
+		_ = r.cmd.Wait()
 		close(done)
 	}()
 
@@ -110,7 +110,7 @@ func (r *Runner) Stop() error {
 		return nil
 	case <-time.After(stopTimeout):
 		// Force kill the process group.
-		syscall.Kill(-pgid, syscall.SIGKILL)
+		_ = syscall.Kill(-pgid, syscall.SIGKILL)
 		return nil
 	}
 }
@@ -122,12 +122,12 @@ func StopPID(pid int) error {
 		return nil // already dead
 	}
 
-	syscall.Kill(-pgid, syscall.SIGTERM)
+	_ = syscall.Kill(-pgid, syscall.SIGTERM)
 
 	// Wait briefly then force kill.
 	time.Sleep(3 * time.Second)
 	if IsProcessRunning(pid) {
-		syscall.Kill(-pgid, syscall.SIGKILL)
+		_ = syscall.Kill(-pgid, syscall.SIGKILL)
 	}
 	return nil
 }
@@ -170,22 +170,22 @@ func (r *Runner) buildEnv() []string {
 		env = append(env, k+"="+v)
 	}
 
-	// Add GWS auto-injected vars.
+	// Add portree auto-injected vars.
 	env = append(env,
 		fmt.Sprintf("PORT=%d", r.config.Port),
-		fmt.Sprintf("GWS_BRANCH=%s", r.config.Branch),
-		fmt.Sprintf("GWS_BRANCH_SLUG=%s", r.config.BranchSlug),
-		fmt.Sprintf("GWS_SERVICE=%s", r.config.ServiceName),
+		fmt.Sprintf("PT_BRANCH=%s", r.config.Branch),
+		fmt.Sprintf("PT_BRANCH_SLUG=%s", r.config.BranchSlug),
+		fmt.Sprintf("PT_SERVICE=%s", r.config.ServiceName),
 	)
 
 	// Add cross-service port and URL vars.
 	for svcName, svcPort := range r.config.AllServicePorts {
 		upper := strings.ToUpper(svcName)
-		env = append(env, fmt.Sprintf("GWS_%s_PORT=%d", upper, svcPort))
+		env = append(env, fmt.Sprintf("PT_%s_PORT=%d", upper, svcPort))
 	}
 	for svcName, proxyPort := range r.config.AllServiceProxyPorts {
 		upper := strings.ToUpper(svcName)
-		env = append(env, fmt.Sprintf("GWS_%s_URL=http://%s.localhost:%d", upper, r.config.BranchSlug, proxyPort))
+		env = append(env, fmt.Sprintf("PT_%s_URL=http://%s.localhost:%d", upper, r.config.BranchSlug, proxyPort))
 	}
 
 	return env

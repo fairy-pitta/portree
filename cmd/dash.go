@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/shuna/gws/internal/tui"
+	"github.com/fairy-pitta/portree/internal/tui"
 	"github.com/spf13/cobra"
 )
 

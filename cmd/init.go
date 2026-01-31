@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/shuna/gws/internal/config"
-	"github.com/shuna/gws/internal/git"
+	"github.com/fairy-pitta/portree/internal/config"
+	"github.com/fairy-pitta/portree/internal/git"
 	"github.com/spf13/cobra"
 )
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Initialize a .gws.toml configuration file",
-	Long:  "Creates a default .gws.toml in the current git repository root.",
+	Short: "Initialize a .portree.toml configuration file",
+	Long:  "Creates a default .portree.toml in the current git repository root.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cwd, err := os.Getwd()
 		if err != nil {

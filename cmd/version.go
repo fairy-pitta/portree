@@ -15,9 +15,9 @@ var (
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Print the version of gws",
+	Short: "Print the version of portree",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("gws %s (commit: %s, built: %s)\n", version, commit, date)
+		fmt.Printf("portree %s (commit: %s, built: %s)\n", version, commit, date)
 	},
 }
 

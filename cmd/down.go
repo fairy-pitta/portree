@@ -5,10 +5,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/shuna/gws/internal/git"
-	"github.com/shuna/gws/internal/port"
-	"github.com/shuna/gws/internal/process"
-	"github.com/shuna/gws/internal/state"
+	"github.com/fairy-pitta/portree/internal/git"
+	"github.com/fairy-pitta/portree/internal/port"
+	"github.com/fairy-pitta/portree/internal/process"
+	"github.com/fairy-pitta/portree/internal/state"
 	"github.com/spf13/cobra"
 )
 
@@ -33,7 +33,7 @@ var downCmd = &cobra.Command{
 			}
 		}
 
-		stateDir := filepath.Join(repoRoot, ".gws")
+		stateDir := filepath.Join(repoRoot, ".portree")
 		store, err := state.NewFileStore(stateDir)
 		if err != nil {
 			return err

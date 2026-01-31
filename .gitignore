@@ -1,9 +1,9 @@
 # Binary
-gws
+portree
 dist/
 
 # State (runtime)
-.gws/
+.portree/
 
 # OS
 .DS_Store

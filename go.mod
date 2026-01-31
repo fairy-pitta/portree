@@ -1,4 +1,4 @@
-module github.com/shuna/gws
+module github.com/fairy-pitta/portree
 
 go 1.25.6
 

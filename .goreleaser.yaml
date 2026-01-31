@@ -16,9 +16,9 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X github.com/shuna/gws/cmd.version={{.Version}}
-      - -X github.com/shuna/gws/cmd.commit={{.Commit}}
-      - -X github.com/shuna/gws/cmd.date={{.Date}}
+      - -X github.com/fairy-pitta/portree/cmd.version={{.Version}}
+      - -X github.com/fairy-pitta/portree/cmd.commit={{.Commit}}
+      - -X github.com/fairy-pitta/portree/cmd.date={{.Date}}
 
 archives:
   - format: tar.gz

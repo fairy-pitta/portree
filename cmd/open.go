@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/shuna/gws/internal/browser"
-	"github.com/shuna/gws/internal/git"
+	"github.com/fairy-pitta/portree/internal/browser"
+	"github.com/fairy-pitta/portree/internal/git"
 	"github.com/spf13/cobra"
 )
 

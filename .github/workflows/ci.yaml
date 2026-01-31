@@ -33,7 +33,7 @@ jobs:
         run: go test ./... -race -count=1 -v
 
       - name: Build
-        run: go build -o gws .
+        run: go build -o portree .
 
   lint:
     runs-on: ubuntu-latest

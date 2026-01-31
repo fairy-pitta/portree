@@ -10,12 +10,12 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/shuna/gws/internal/browser"
-	"github.com/shuna/gws/internal/config"
-	"github.com/shuna/gws/internal/git"
-	"github.com/shuna/gws/internal/port"
-	"github.com/shuna/gws/internal/process"
-	"github.com/shuna/gws/internal/state"
+	"github.com/fairy-pitta/portree/internal/browser"
+	"github.com/fairy-pitta/portree/internal/config"
+	"github.com/fairy-pitta/portree/internal/git"
+	"github.com/fairy-pitta/portree/internal/port"
+	"github.com/fairy-pitta/portree/internal/process"
+	"github.com/fairy-pitta/portree/internal/state"
 )
 
 const pollInterval = 2 * time.Second
@@ -40,7 +40,7 @@ type Model struct {
 
 // NewModel creates a new dashboard model.
 func NewModel(cfg *config.Config, repoRoot string) (*Model, error) {
-	stateDir := filepath.Join(repoRoot, ".gws")
+	stateDir := filepath.Join(repoRoot, ".portree")
 	store, err := state.NewFileStore(stateDir)
 	if err != nil {
 		return nil, err
@@ -94,7 +94,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case StatusUpdateMsg:
 		m.rows = msg.Rows
 		// Refresh proxy status from state.
-		m.store.WithLock(func() error {
+		_ = m.store.WithLock(func() error {
 			st, e := m.store.Load()
 			if e != nil {
 				return e
@@ -120,7 +120,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View implements tea.Model.
 func (m *Model) View() string {
-	title := titleStyle.Render(" gws dashboard ")
+	title := titleStyle.Render(" portree dashboard ")
 
 	table := renderTable(m.rows, m.cursor)
 	proxyLine := renderProxyStatus(m.proxyRunning, m.proxyPorts)
@@ -171,7 +171,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.stopAll
 
 	case key.Matches(msg, m.keys.ToggleProxy):
-		m.statusMsg = "Proxy toggle not supported in dashboard (use 'gws proxy start' in a separate terminal)"
+		m.statusMsg = "Proxy toggle not supported in dashboard (use 'portree proxy start' in a separate terminal)"
 		return m, nil
 
 	case key.Matches(msg, m.keys.ViewLogs):
@@ -206,7 +206,7 @@ func (m *Model) refreshStatus() tea.Msg {
 	sort.Strings(serviceNames)
 
 	var st *state.State
-	m.store.WithLock(func() error {
+	_ = m.store.WithLock(func() error {
 		st, err = m.store.Load()
 		return err
 	})

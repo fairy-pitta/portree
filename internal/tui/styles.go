@@ -7,7 +7,6 @@ var (
 	colorPrimary   = lipgloss.Color("#7C3AED") // purple
 	colorGreen     = lipgloss.Color("#10B981")
 	colorRed       = lipgloss.Color("#EF4444")
-	colorYellow    = lipgloss.Color("#F59E0B")
 	colorGray      = lipgloss.Color("#6B7280")
 	colorDimGray   = lipgloss.Color("#374151")
 	colorWhite     = lipgloss.Color("#F9FAFB")
