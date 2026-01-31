@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 
 	"github.com/fairy-pitta/portree/internal/config"
@@ -30,10 +31,19 @@ var doctorCmd = &cobra.Command{
 		var results []checkResult
 
 		results = append(results, checkGit())
-		results = append(results, checkRepo())
+
+		cwd, err := os.Getwd()
+		if err != nil {
+			results = append(results, checkResult{
+				name: "inside git repository", ok: false, detail: err.Error(),
+			})
+			printResults(results)
+			return nil
+		}
+
+		results = append(results, checkRepo(cwd))
 
 		// Config and state checks require a repo.
-		cwd, _ := os.Getwd()
 		root, rootErr := git.FindRepoRoot(cwd)
 		if rootErr == nil {
 			results = append(results, checkConfig(root))
@@ -41,32 +51,34 @@ var doctorCmd = &cobra.Command{
 			cfgObj, cfgErr := config.Load(root)
 			if cfgErr == nil {
 				results = append(results, checkPortConflicts(cfgObj)...)
-				results = append(results, checkStaleState(root, cfgObj))
+				results = append(results, checkStaleState(root))
 			}
 		}
 
-		// Print results.
-		allOK := true
-		for _, r := range results {
-			mark := "✓"
-			if !r.ok {
-				mark = "✗"
-				allOK = false
-			}
-			fmt.Printf("  %s  %s\n", mark, r.name)
-			if r.detail != "" {
-				fmt.Printf("     %s\n", r.detail)
-			}
-		}
-
-		if allOK {
-			fmt.Println("\nAll checks passed.")
-		} else {
-			fmt.Println("\nSome checks failed. See details above.")
-		}
-
+		printResults(results)
 		return nil
 	},
+}
+
+func printResults(results []checkResult) {
+	allOK := true
+	for _, r := range results {
+		mark := "✓"
+		if !r.ok {
+			mark = "✗"
+			allOK = false
+		}
+		fmt.Printf("  %s  %s\n", mark, r.name)
+		if r.detail != "" {
+			fmt.Printf("     %s\n", r.detail)
+		}
+	}
+
+	if allOK {
+		fmt.Println("\nAll checks passed.")
+	} else {
+		fmt.Println("\nSome checks failed. See details above.")
+	}
 }
 
 func checkGit() checkResult {
@@ -85,11 +97,7 @@ func checkGit() checkResult {
 	}
 }
 
-func checkRepo() checkResult {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return checkResult{name: "inside git repository", ok: false, detail: err.Error()}
-	}
+func checkRepo(cwd string) checkResult {
 	root, err := git.FindRepoRoot(cwd)
 	if err != nil {
 		return checkResult{name: "inside git repository", ok: false, detail: "not inside a git repository"}
@@ -101,7 +109,7 @@ func checkConfig(root string) checkResult {
 	cfgPath := filepath.Join(root, config.FileName)
 	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
 		return checkResult{
-			name:   "config file exists",
+			name:   "config file",
 			ok:     false,
 			detail: fmt.Sprintf("%s not found (run 'portree init' to create)", config.FileName),
 		}
@@ -109,19 +117,27 @@ func checkConfig(root string) checkResult {
 
 	cfg, err := config.Load(root)
 	if err != nil {
-		return checkResult{name: "config file valid", ok: false, detail: err.Error()}
+		return checkResult{name: "config file", ok: false, detail: err.Error()}
 	}
 
 	return checkResult{
-		name:   "config file valid",
+		name:   "config file",
 		ok:     true,
 		detail: fmt.Sprintf("%d service(s) defined", len(cfg.Services)),
 	}
 }
 
 func checkPortConflicts(cfg *config.Config) []checkResult {
+	// Sort for deterministic output order.
+	names := make([]string, 0, len(cfg.Services))
+	for name := range cfg.Services {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
 	var results []checkResult
-	for name, svc := range cfg.Services {
+	for _, name := range names {
+		svc := cfg.Services[name]
 		ln, err := net.Listen("tcp", ":"+strconv.Itoa(svc.ProxyPort))
 		if err != nil {
 			results = append(results, checkResult{
@@ -140,7 +156,7 @@ func checkPortConflicts(cfg *config.Config) []checkResult {
 	return results
 }
 
-func checkStaleState(root string, cfg *config.Config) checkResult {
+func checkStaleState(root string) checkResult {
 	stateDir := filepath.Join(root, ".portree")
 	store, err := state.NewFileStore(stateDir)
 	if err != nil {
@@ -152,22 +168,20 @@ func checkStaleState(root string, cfg *config.Config) checkResult {
 		return checkResult{name: "state file healthy", ok: false, detail: err.Error()}
 	}
 
-	staleCount := 0
+	var staleDetails []string
 	for branch, services := range st.Services {
 		for svcName, ss := range services {
 			if ss.Status == "running" && ss.PID > 0 && !process.IsProcessRunning(ss.PID) {
-				staleCount++
-				_ = branch
-				_ = svcName
+				staleDetails = append(staleDetails, fmt.Sprintf("%s/%s (PID %d)", branch, svcName, ss.PID))
 			}
 		}
 	}
 
-	if staleCount > 0 {
+	if len(staleDetails) > 0 {
 		return checkResult{
 			name:   "state file healthy",
 			ok:     false,
-			detail: fmt.Sprintf("%d stale process(es) found (PIDs recorded as running but dead)", staleCount),
+			detail: fmt.Sprintf("%d stale: %v", len(staleDetails), staleDetails),
 		}
 	}
 
