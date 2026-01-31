@@ -19,7 +19,7 @@ const (
 
 // Logger provides leveled logging output.
 type Logger struct {
-	mu    sync.Mutex
+	mu    sync.RWMutex
 	level Level
 	out   io.Writer
 }
@@ -35,8 +35,8 @@ func SetLevel(l Level) {
 
 // GetLevel returns the current log level.
 func GetLevel() Level {
-	std.mu.Lock()
-	defer std.mu.Unlock()
+	std.mu.RLock()
+	defer std.mu.RUnlock()
 	return std.level
 }
 
