@@ -23,6 +23,9 @@
 ### 1. Install
 
 ```bash
+# Homebrew
+brew install fairy-pitta/tap/portree
+
 # From source
 go install github.com/fairy-pitta/portree@latest
 

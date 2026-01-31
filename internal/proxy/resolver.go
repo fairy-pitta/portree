@@ -42,14 +42,16 @@ func (r *Resolver) Resolve(slug string, proxyPort int) (int, error) {
 
 	// Look up the real port from state.
 	var port int
-	_ = r.store.WithLock(func() error {
+	if err := r.store.WithLock(func() error {
 		st, e := r.store.Load()
 		if e != nil {
 			return e
 		}
 		port = state.GetPortAssignment(st, branch, serviceName)
 		return nil
-	})
+	}); err != nil {
+		return 0, fmt.Errorf("loading state: %w", err)
+	}
 
 	if port == 0 {
 		return 0, fmt.Errorf("no port assigned for %s/%s (slug: %s)", branch, serviceName, slug)
@@ -60,12 +62,10 @@ func (r *Resolver) Resolve(slug string, proxyPort int) (int, error) {
 // AvailableSlugs returns all known branch slugs.
 func (r *Resolver) AvailableSlugs() ([]string, error) {
 	var slugs []string
-	var err error
 
-	_ = r.store.WithLock(func() error {
+	if err := r.store.WithLock(func() error {
 		st, e := r.store.Load()
 		if e != nil {
-			err = e
 			return e
 		}
 		seen := map[string]bool{}
@@ -80,21 +80,21 @@ func (r *Resolver) AvailableSlugs() ([]string, error) {
 			}
 		}
 		return nil
-	})
+	}); err != nil {
+		return nil, err
+	}
 
-	return slugs, err
+	return slugs, nil
 }
 
 // slugToBranch converts a URL slug back to the original branch name
 // by checking state for known branches.
 func (r *Resolver) slugToBranch(slug string) (string, error) {
 	var branch string
-	var err error
 
-	_ = r.store.WithLock(func() error {
+	if err := r.store.WithLock(func() error {
 		st, e := r.store.Load()
 		if e != nil {
-			err = e
 			return e
 		}
 		for key := range st.PortAssignments {
@@ -108,11 +108,10 @@ func (r *Resolver) slugToBranch(slug string) (string, error) {
 			}
 		}
 		return nil
-	})
-
-	if err != nil {
+	}); err != nil {
 		return "", err
 	}
+
 	if branch == "" {
 		return "", fmt.Errorf("no worktree found for slug %q", slug)
 	}

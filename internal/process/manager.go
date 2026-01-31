@@ -1,8 +1,10 @@
 package process
 
 import (
+	"log"
 	"path/filepath"
 	"sort"
+	"sync"
 
 	"github.com/fairy-pitta/portree/internal/config"
 	"github.com/fairy-pitta/portree/internal/git"
@@ -15,6 +17,7 @@ type Manager struct {
 	cfg      *config.Config
 	store    *state.FileStore
 	registry *port.Registry
+	mu       sync.Mutex
 	runners  map[string]*Runner // key: "branch:service"
 }
 
@@ -26,6 +29,25 @@ func NewManager(cfg *config.Config, store *state.FileStore, registry *port.Regis
 		registry: registry,
 		runners:  map[string]*Runner{},
 	}
+}
+
+func (m *Manager) setRunner(key string, r *Runner) {
+	m.mu.Lock()
+	m.runners[key] = r
+	m.mu.Unlock()
+}
+
+func (m *Manager) getRunner(key string) (*Runner, bool) {
+	m.mu.Lock()
+	r, ok := m.runners[key]
+	m.mu.Unlock()
+	return r, ok
+}
+
+func (m *Manager) deleteRunner(key string) {
+	m.mu.Lock()
+	delete(m.runners, key)
+	m.mu.Unlock()
 }
 
 // StartResult describes the outcome of starting a service.
@@ -104,16 +126,18 @@ func (m *Manager) StartServices(tree *git.Worktree, serviceFilter string) []Star
 
 		if err == nil {
 			key := tree.Branch + ":" + svcName
-			m.runners[key] = runner
+			m.setRunner(key, runner)
 
-			_ = m.store.WithLock(func() error {
+			if err := m.store.WithLock(func() error {
 				st, e := m.store.Load()
 				if e != nil {
 					return e
 				}
 				state.SetServiceState(st, tree.Branch, svcName, state.RunningServiceState(p, pid))
 				return m.store.Save(st)
-			})
+			}); err != nil {
+				log.Printf("warning: failed to save state after starting %s/%s: %v", tree.Branch, svcName, err)
+			}
 		}
 	}
 
@@ -130,12 +154,12 @@ func (m *Manager) StopServices(tree *git.Worktree, serviceFilter string) []Start
 		result := StartResult{Branch: tree.Branch, Service: svcName}
 
 		// Try runner first.
-		if runner, ok := m.runners[key]; ok {
+		if runner, ok := m.getRunner(key); ok {
 			result.Err = runner.Stop()
-			delete(m.runners, key)
+			m.deleteRunner(key)
 		} else {
 			// Fall back to PID from state.
-			_ = m.store.WithLock(func() error {
+			if err := m.store.WithLock(func() error {
 				st, e := m.store.Load()
 				if e != nil {
 					return e
@@ -146,11 +170,13 @@ func (m *Manager) StopServices(tree *git.Worktree, serviceFilter string) []Start
 					result.Err = StopPID(ss.PID)
 				}
 				return nil
-			})
+			}); err != nil {
+				result.Err = err
+			}
 		}
 
 		// Update state to stopped.
-		_ = m.store.WithLock(func() error {
+		if err := m.store.WithLock(func() error {
 			st, e := m.store.Load()
 			if e != nil {
 				return e
@@ -162,7 +188,9 @@ func (m *Manager) StopServices(tree *git.Worktree, serviceFilter string) []Start
 			}
 			state.SetServiceState(st, tree.Branch, svcName, state.StoppedServiceState(portVal))
 			return m.store.Save(st)
-		})
+		}); err != nil {
+			log.Printf("warning: failed to update state after stopping %s/%s: %v", tree.Branch, svcName, err)
+		}
 
 		results = append(results, result)
 	}
@@ -172,7 +200,7 @@ func (m *Manager) StopServices(tree *git.Worktree, serviceFilter string) []Start
 
 // cleanStale checks if a previously recorded process is dead and cleans up state.
 func (m *Manager) cleanStale(branch, service string) {
-	_ = m.store.WithLock(func() error {
+	if err := m.store.WithLock(func() error {
 		st, err := m.store.Load()
 		if err != nil {
 			return err
@@ -183,7 +211,9 @@ func (m *Manager) cleanStale(branch, service string) {
 			return m.store.Save(st)
 		}
 		return nil
-	})
+	}); err != nil {
+		log.Printf("warning: failed to clean stale state for %s/%s: %v", branch, service, err)
+	}
 }
 
 // targetServices returns sorted service names, optionally filtered.

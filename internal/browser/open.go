@@ -13,17 +13,13 @@ func BuildURL(slug string, proxyPort int) string {
 
 // Open opens the given URL in the default browser.
 func Open(url string) error {
-	cmd := openCommand()
-	return exec.Command(cmd, url).Start()
-}
-
-func openCommand() string {
 	switch runtime.GOOS {
 	case "darwin":
-		return "open"
+		return exec.Command("open", url).Start()
 	case "windows":
-		return "rundll32"
+		// On Windows, "start" requires an empty title argument before the URL.
+		return exec.Command("cmd", "/c", "start", "", url).Start()
 	default:
-		return "xdg-open"
+		return exec.Command("xdg-open", url).Start()
 	}
 }

@@ -44,6 +44,11 @@ func hashPort(branch, service string, min, max int) int {
 }
 
 // isPortFree checks if a TCP port is available by attempting to listen on it.
+// Note: there is an inherent TOCTOU (time-of-check-time-of-use) race between
+// this check and the moment the child process actually binds the port. This is
+// mitigated by (1) the file-level lock in state.FileStore serializing port
+// allocation across concurrent portree invocations, and (2) a clear error
+// message when the service fails to bind its assigned port.
 func isPortFree(port int) bool {
 	ln, err := net.Listen("tcp", ":"+strconv.Itoa(port))
 	if err != nil {

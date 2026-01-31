@@ -13,11 +13,14 @@ import (
 	"time"
 )
 
+const shutdownTimeout = 5 * time.Second
+
 // ProxyServer manages multiple HTTP reverse proxy listeners, one per proxy_port.
 type ProxyServer struct {
-	resolver *Resolver
-	servers  []*http.Server
-	mu       sync.Mutex
+	resolver  *Resolver
+	servers   []*http.Server
+	listeners []net.Listener
+	mu        sync.Mutex
 }
 
 // NewProxyServer creates a new ProxyServer.
@@ -50,6 +53,7 @@ func (p *ProxyServer) Start(proxyPorts map[string]int) error {
 		}
 
 		p.servers = append(p.servers, srv)
+		p.listeners = append(p.listeners, ln)
 		go func() { _ = srv.Serve(ln) }()
 	}
 
@@ -66,13 +70,18 @@ func (p *ProxyServer) Stop() error {
 func (p *ProxyServer) stopLocked() error {
 	var lastErr error
 	for _, srv := range p.servers {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 		if err := srv.Shutdown(ctx); err != nil {
 			lastErr = err
 		}
 		cancel()
 	}
+	// Close listeners explicitly to avoid FD leaks (idempotent after Shutdown).
+	for _, ln := range p.listeners {
+		_ = ln.Close()
+	}
 	p.servers = nil
+	p.listeners = nil
 	return lastErr
 }
 

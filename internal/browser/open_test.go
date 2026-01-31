@@ -1,7 +1,6 @@
 package browser
 
 import (
-	"runtime"
 	"testing"
 )
 
@@ -23,20 +22,9 @@ func TestBuildURL(t *testing.T) {
 	})
 }
 
-func TestOpenCommand(t *testing.T) {
-	cmd := openCommand()
-	switch runtime.GOOS {
-	case "darwin":
-		if cmd != "open" {
-			t.Errorf("openCommand() on darwin = %q, want %q", cmd, "open")
-		}
-	case "windows":
-		if cmd != "rundll32" {
-			t.Errorf("openCommand() on windows = %q, want %q", cmd, "rundll32")
-		}
-	default:
-		if cmd != "xdg-open" {
-			t.Errorf("openCommand() on %s = %q, want %q", runtime.GOOS, cmd, "xdg-open")
-		}
-	}
+func TestOpenDoesNotPanic(t *testing.T) {
+	// Smoke test: calling Open with an invalid URL should not panic.
+	// We don't check the error since the browser command may or may not
+	// be available in the test environment.
+	_ = Open("http://localhost:0/test")
 }

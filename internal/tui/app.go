@@ -301,6 +301,10 @@ func (m *Model) openSelected() tea.Msg {
 		return ActionResultMsg{Message: "No service selected"}
 	}
 
+	if row.Status != "running" {
+		return ActionResultMsg{Message: fmt.Sprintf("%s/%s is not running, start it first", row.Branch, row.Service), IsError: true}
+	}
+
 	svc, ok := m.cfg.Services[row.Service]
 	if !ok {
 		return ActionResultMsg{Message: "Unknown service", IsError: true}
@@ -314,7 +318,10 @@ func (m *Model) openSelected() tea.Msg {
 }
 
 func (m *Model) startAll() tea.Msg {
-	cwd, _ := os.Getwd()
+	cwd, err := os.Getwd()
+	if err != nil {
+		return ActionResultMsg{Message: fmt.Sprintf("Error: %v", err), IsError: true}
+	}
 	trees, err := git.ListWorktrees(cwd)
 	if err != nil {
 		return ActionResultMsg{Message: fmt.Sprintf("Error: %v", err), IsError: true}
@@ -336,7 +343,10 @@ func (m *Model) startAll() tea.Msg {
 }
 
 func (m *Model) stopAll() tea.Msg {
-	cwd, _ := os.Getwd()
+	cwd, err := os.Getwd()
+	if err != nil {
+		return ActionResultMsg{Message: fmt.Sprintf("Error: %v", err), IsError: true}
+	}
 	trees, err := git.ListWorktrees(cwd)
 	if err != nil {
 		return ActionResultMsg{Message: fmt.Sprintf("Error: %v", err), IsError: true}
@@ -375,7 +385,10 @@ func (m *Model) viewLogs() tea.Msg {
 
 // worktreePath looks up the worktree path from known worktrees.
 func (m *Model) worktreePath(branch string) string {
-	cwd, _ := os.Getwd()
+	cwd, err := os.Getwd()
+	if err != nil {
+		return m.repoRoot
+	}
 	trees, err := git.ListWorktrees(cwd)
 	if err != nil {
 		return m.repoRoot

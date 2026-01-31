@@ -57,6 +57,13 @@ var upCmd = &cobra.Command{
 			trees = []git.Worktree{*tree}
 		}
 
+		// Warn about branch slug collisions.
+		if collisions := git.DetectSlugCollisions(trees); len(collisions) > 0 {
+			for slug, branches := range collisions {
+				fmt.Fprintf(os.Stderr, "Warning: branches %v all map to slug %q; proxy routing may be ambiguous\n", branches, slug)
+			}
+		}
+
 		totalStarted := 0
 		for _, tree := range trees {
 			if tree.IsBare {

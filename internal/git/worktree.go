@@ -32,6 +32,26 @@ func BranchSlug(branch string) string {
 	return strings.ToLower(slug)
 }
 
+// DetectSlugCollisions returns a map of slug -> branch names for any slugs that
+// map to more than one branch. An empty map means no collisions.
+func DetectSlugCollisions(trees []Worktree) map[string][]string {
+	slugBranches := map[string][]string{}
+	for _, t := range trees {
+		if t.IsBare {
+			continue
+		}
+		slug := t.Slug()
+		slugBranches[slug] = append(slugBranches[slug], t.Branch)
+	}
+	collisions := map[string][]string{}
+	for slug, branches := range slugBranches {
+		if len(branches) > 1 {
+			collisions[slug] = branches
+		}
+	}
+	return collisions
+}
+
 // ListWorktrees returns all worktrees for the repo containing dir.
 func ListWorktrees(dir string) ([]Worktree, error) {
 	cmd := exec.Command("git", "worktree", "list", "--porcelain")
