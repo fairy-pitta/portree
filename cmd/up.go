@@ -61,7 +61,7 @@ var upCmd = &cobra.Command{
 		// Warn about branch slug collisions.
 		if collisions := git.DetectSlugCollisions(trees); len(collisions) > 0 {
 			for slug, branches := range collisions {
-				fmt.Fprintf(os.Stderr, "Warning: branches %v all map to slug %q; proxy routing may be ambiguous\n", branches, slug)
+				logging.Warn("branches %v all map to slug %q; proxy routing may be ambiguous", branches, slug)
 			}
 		}
 
@@ -74,9 +74,9 @@ var upCmd = &cobra.Command{
 			results := mgr.StartServices(&tree, upService)
 			for _, r := range results {
 				if r.Err != nil {
-					fmt.Fprintf(os.Stderr, "Error starting %s/%s: %v\n", r.Branch, r.Service, r.Err)
+					logging.Error("starting %s/%s: %v", r.Branch, r.Service, r.Err)
 				} else {
-					fmt.Printf("Starting %s (port %d) for %s ...\n", r.Service, r.Port, r.Branch)
+					logging.Info("Starting %s (port %d) for %s ...", r.Service, r.Port, r.Branch)
 					totalStarted++
 				}
 			}
@@ -88,9 +88,9 @@ var upCmd = &cobra.Command{
 				noun = "service"
 			}
 			if upAll {
-				fmt.Printf("✓ %d %s started\n", totalStarted, noun)
+				logging.Info("✓ %d %s started", totalStarted, noun)
 			} else {
-				fmt.Printf("✓ %d %s started for %s\n", totalStarted, noun, trees[0].Branch)
+				logging.Info("✓ %d %s started for %s", totalStarted, noun, trees[0].Branch)
 			}
 		}
 
