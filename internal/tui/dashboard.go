@@ -25,7 +25,8 @@ const fixedColumnsWidth = colServiceWidth + colPortWidth + colStatusWidth + colP
 
 // worktreeColumnWidth computes the dynamic WORKTREE column width.
 func worktreeColumnWidth(termWidth int) int {
-	// Account for border padding (lipgloss RoundedBorder + Padding(1,2) adds ~6 chars on each side).
+	// borderOverhead accounts for borderStyle: RoundedBorder (1 char each side) + Padding(1,2) (2 chars each side) = ~6.
+	// Update this if borderStyle in styles.go changes.
 	const borderOverhead = 6
 	available := termWidth - fixedColumnsWidth - borderOverhead
 	if available < colMinWorktree {

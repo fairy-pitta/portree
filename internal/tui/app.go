@@ -146,7 +146,12 @@ func (m *Model) View() string {
 
 	title := titleStyle.Render(" portree dashboard ")
 
-	table := renderTable(m.rows, m.cursor, m.width)
+	// Use minTermWidth as default before the first WindowSizeMsg arrives.
+	tableWidth := m.width
+	if tableWidth == 0 {
+		tableWidth = minTermWidth
+	}
+	table := renderTable(m.rows, m.cursor, tableWidth)
 	proxyLine := renderProxyStatus(m.proxyRunning, m.proxyPorts)
 	help := renderHelp(m.keys)
 

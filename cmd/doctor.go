@@ -215,12 +215,7 @@ func checkStaleWorktrees(root, cwd string) checkResult {
 	}
 
 	// Find branches in state that have no worktree on disk.
-	var orphaned []string
-	for branch := range st.Services {
-		if !activeBranches[branch] {
-			orphaned = append(orphaned, branch)
-		}
-	}
+	orphaned := state.OrphanedBranches(st, activeBranches)
 	sort.Strings(orphaned)
 
 	if len(orphaned) > 0 {

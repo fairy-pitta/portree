@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -61,13 +62,15 @@ func (p *ProxyServer) Start(proxyPorts map[string]int) error {
 
 		p.servers = append(p.servers, srv)
 		p.listeners = append(p.listeners, ln)
+		// Goroutine-level recovery catches panics from Serve() itself (e.g. listener errors).
+		// Per-request panics are caught by recoveryMiddleware wrapping the handler.
 		go func(s *http.Server, l net.Listener) {
 			defer func() {
 				if r := recover(); r != nil {
 					logging.Error("panic in proxy server goroutine: %v\n%s", r, debug.Stack())
 				}
 			}()
-			if err := s.Serve(l); err != nil && err != http.ErrServerClosed {
+			if err := s.Serve(l); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				logging.Error("proxy server error on %s: %v", s.Addr, err)
 			}
 		}(srv, ln)

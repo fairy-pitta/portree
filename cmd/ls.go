@@ -81,12 +81,7 @@ Use --json to output the result as a JSON array for scripting and automation.`,
 				activeBranches[t.Branch] = true
 			}
 		}
-		orphanBranches := make([]string, 0)
-		for branch := range st.Services {
-			if !activeBranches[branch] {
-				orphanBranches = append(orphanBranches, branch)
-			}
-		}
+		orphanBranches := state.OrphanedBranches(st, activeBranches)
 		sort.Strings(orphanBranches)
 		for _, branch := range orphanBranches {
 			for _, svcName := range serviceNames {

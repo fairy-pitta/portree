@@ -15,14 +15,13 @@ port_range = { min = 19100, max = 19199 }
 proxy_port = 19000
 `
 
-// setupTestRepo creates a temporary git repo with .portree.toml and returns its path.
-// It changes the working directory to the repo root and returns a cleanup function.
-func setupTestRepo(t *testing.T) string {
+// setupGitRepo creates a temporary git repo and changes to it.
+// Returns the repo directory. Cleanup is handled via t.Cleanup.
+func setupGitRepo(t *testing.T) string {
 	t.Helper()
 
 	dir := t.TempDir()
 
-	// git init + empty commit
 	run := func(args ...string) {
 		t.Helper()
 		cmd := exec.Command(args[0], args[1:]...)
@@ -42,13 +41,6 @@ func setupTestRepo(t *testing.T) string {
 	run("git", "init")
 	run("git", "commit", "--allow-empty", "-m", "init")
 
-	// Write .portree.toml
-	cfgPath := filepath.Join(dir, config.FileName)
-	if err := os.WriteFile(cfgPath, []byte(testConfig), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	// Change to repo directory.
 	origDir, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
@@ -63,36 +55,36 @@ func setupTestRepo(t *testing.T) string {
 	return dir
 }
 
-// resetRootCmd resets the global state modified by PersistentPreRunE.
+// setupTestRepo creates a temporary git repo with .portree.toml and changes to it.
+func setupTestRepo(t *testing.T) string {
+	t.Helper()
+
+	dir := setupGitRepo(t)
+
+	cfgPath := filepath.Join(dir, config.FileName)
+	if err := os.WriteFile(cfgPath, []byte(testConfig), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	return dir
+}
+
+// resetRootCmd resets the global state modified by PersistentPreRunE and cobra flags.
 func resetRootCmd() {
 	cfg = nil
 	repoRoot = ""
+
+	// Reset cobra flag variables to defaults.
+	downAll = false
+	downService = ""
+	downPrune = false
+	upAll = false
+	upService = ""
+	openService = ""
 }
 
 func TestInitCommand(t *testing.T) {
-	dir := t.TempDir()
-
-	// git init in the temp dir
-	cmd := exec.Command("git", "init")
-	cmd.Dir = dir
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v\n%s", err, out)
-	}
-	cmd = exec.Command("git", "commit", "--allow-empty", "-m", "init")
-	cmd.Dir = dir
-	cmd.Env = append(os.Environ(),
-		"GIT_AUTHOR_NAME=test",
-		"GIT_AUTHOR_EMAIL=test@test.com",
-		"GIT_COMMITTER_NAME=test",
-		"GIT_COMMITTER_EMAIL=test@test.com",
-	)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("git commit: %v\n%s", err, out)
-	}
-
-	origDir, _ := os.Getwd()
-	_ = os.Chdir(dir)
-	defer func() { _ = os.Chdir(origDir) }()
+	dir := setupGitRepo(t)
 
 	resetRootCmd()
 	rootCmd.SetArgs([]string{"init"})

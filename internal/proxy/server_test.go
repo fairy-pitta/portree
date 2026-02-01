@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/fairy-pitta/portree/internal/config"
@@ -154,6 +155,9 @@ func TestRecoveryMiddleware(t *testing.T) {
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
+	}
+	if body := rec.Body.String(); !strings.Contains(body, "Internal Server Error") {
+		t.Errorf("body = %q, want it to contain %q", body, "Internal Server Error")
 	}
 }
 

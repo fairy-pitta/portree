@@ -2,10 +2,11 @@ package state
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"errors"
+	"strings"
 	"syscall"
 	"time"
 
@@ -149,6 +150,15 @@ func PortKey(branch, service string) string {
 	return branch + ":" + service
 }
 
+// ParsePortKey splits a port key back into branch and service.
+// Returns the original key as branch with an empty service if no separator is found.
+func ParsePortKey(key string) (branch, service string) {
+	if idx := strings.Index(key, ":"); idx >= 0 {
+		return key[:idx], key[idx+1:]
+	}
+	return key, ""
+}
+
 // SetPortAssignment records a port assignment.
 func SetPortAssignment(st *State, branch, service string, port int) {
 	st.PortAssignments[PortKey(branch, service)] = port
@@ -175,6 +185,17 @@ func StoppedServiceState(port int) *ServiceState {
 		Port:   port,
 		Status: StatusStopped,
 	}
+}
+
+// OrphanedBranches returns branches present in state but not in the given set of active branches.
+func OrphanedBranches(st *State, activeBranches map[string]bool) []string {
+	var orphaned []string
+	for branch := range st.Services {
+		if !activeBranches[branch] {
+			orphaned = append(orphaned, branch)
+		}
+	}
+	return orphaned
 }
 
 func emptyState() *State {

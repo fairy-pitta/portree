@@ -117,20 +117,14 @@ func pruneOrphanedState(store *state.FileStore, cwd string) error {
 			return e
 		}
 
-		for branch := range st.Services {
-			if !activeBranches[branch] {
-				pruned = append(pruned, branch)
-				delete(st.Services, branch)
-			}
+		for _, branch := range state.OrphanedBranches(st, activeBranches) {
+			pruned = append(pruned, branch)
+			delete(st.Services, branch)
 		}
 
 		// Clean up port assignments for pruned branches.
 		for key := range st.PortAssignments {
-			// Keys are "branch:service".
-			branch := key
-			if idx := strings.Index(key, ":"); idx >= 0 {
-				branch = key[:idx]
-			}
+			branch, _ := state.ParsePortKey(key)
 			if !activeBranches[branch] {
 				delete(st.PortAssignments, key)
 			}
