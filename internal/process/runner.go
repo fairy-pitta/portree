@@ -112,7 +112,9 @@ func (r *Runner) Stop() error {
 	}
 
 	// Send SIGTERM to the process group.
-	_ = syscall.Kill(-pgid, syscall.SIGTERM)
+	if err := syscall.Kill(-pgid, syscall.SIGTERM); err != nil {
+		logging.Warn("failed to send SIGTERM to process group %d: %v", pgid, err)
+	}
 
 	// Reuse the done channel from Start instead of calling Wait again.
 	select {
@@ -120,7 +122,9 @@ func (r *Runner) Stop() error {
 		return nil
 	case <-time.After(stopTimeout):
 		// Force kill the process group.
-		_ = syscall.Kill(-pgid, syscall.SIGKILL)
+		if err := syscall.Kill(-pgid, syscall.SIGKILL); err != nil {
+			logging.Warn("failed to send SIGKILL to process group %d: %v", pgid, err)
+		}
 		return nil
 	}
 }
@@ -138,7 +142,9 @@ func StopPID(pid int) error {
 		return nil // already dead
 	}
 
-	_ = syscall.Kill(-pgid, syscall.SIGTERM)
+	if err := syscall.Kill(-pgid, syscall.SIGTERM); err != nil {
+		logging.Warn("failed to send SIGTERM to process group %d: %v", pgid, err)
+	}
 
 	// Poll briefly for process exit, then force kill.
 	for i := 0; i < 30; i++ {
@@ -147,7 +153,9 @@ func StopPID(pid int) error {
 			return nil
 		}
 	}
-	_ = syscall.Kill(-pgid, syscall.SIGKILL)
+	if err := syscall.Kill(-pgid, syscall.SIGKILL); err != nil {
+		logging.Warn("failed to send SIGKILL to process group %d: %v", pgid, err)
+	}
 	for i := 0; i < 5; i++ {
 		time.Sleep(50 * time.Millisecond)
 		if !IsProcessRunning(pid) {

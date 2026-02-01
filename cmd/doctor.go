@@ -52,6 +52,7 @@ var doctorCmd = &cobra.Command{
 			if cfgErr == nil {
 				results = append(results, checkPortConflicts(cfgObj)...)
 				results = append(results, checkStaleState(root))
+				results = append(results, checkStaleWorktrees(root, cwd))
 			}
 		}
 
@@ -186,6 +187,51 @@ func checkStaleState(root string) checkResult {
 	}
 
 	return checkResult{name: "state file healthy", ok: true}
+}
+
+func checkStaleWorktrees(root, cwd string) checkResult {
+	stateDir := filepath.Join(root, ".portree")
+	store, err := state.NewFileStore(stateDir)
+	if err != nil {
+		return checkResult{name: "worktree state consistent", ok: true}
+	}
+
+	st, err := store.Load()
+	if err != nil {
+		return checkResult{name: "worktree state consistent", ok: false, detail: err.Error()}
+	}
+
+	trees, err := git.ListWorktrees(cwd)
+	if err != nil {
+		return checkResult{name: "worktree state consistent", ok: false, detail: err.Error()}
+	}
+
+	// Build set of branches that have worktrees on disk.
+	activeBranches := make(map[string]bool, len(trees))
+	for _, t := range trees {
+		if !t.IsBare {
+			activeBranches[t.Branch] = true
+		}
+	}
+
+	// Find branches in state that have no worktree on disk.
+	var orphaned []string
+	for branch := range st.Services {
+		if !activeBranches[branch] {
+			orphaned = append(orphaned, branch)
+		}
+	}
+	sort.Strings(orphaned)
+
+	if len(orphaned) > 0 {
+		return checkResult{
+			name:   "worktree state consistent",
+			ok:     false,
+			detail: fmt.Sprintf("%d orphaned: %v (run 'portree down --prune' to clean)", len(orphaned), orphaned),
+		}
+	}
+
+	return checkResult{name: "worktree state consistent", ok: true}
 }
 
 func trimNewline(s string) string {

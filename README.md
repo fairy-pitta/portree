@@ -311,6 +311,69 @@ portree down --all
 
 ---
 
+## Shell Completion
+
+portree supports shell completion for bash, zsh, fish, and PowerShell.
+
+**bash:**
+```bash
+source <(portree completion bash)
+# Or for persistent use:
+portree completion bash > /etc/bash_completion.d/portree
+```
+
+**zsh:**
+```bash
+portree completion zsh > "${fpath[1]}/_portree"
+# You may need to start a new shell for this to take effect.
+```
+
+**fish:**
+```bash
+portree completion fish | source
+# Or for persistent use:
+portree completion fish > ~/.config/fish/completions/portree.fish
+```
+
+**PowerShell:**
+```powershell
+portree completion powershell | Out-String | Invoke-Expression
+# Or for persistent use:
+portree completion powershell > portree.ps1
+# and add ". portree.ps1" to your PowerShell profile.
+```
+
+---
+
+## Troubleshooting
+
+### Service fails to start
+
+- Check the log file at `.portree/logs/<branch-slug>.<service>.log` for error output.
+- Verify the `command` in `.portree.toml` runs correctly when executed manually.
+- Ensure the working `dir` exists relative to the worktree root.
+
+### Port conflict
+
+- Run `portree doctor` to check for port conflicts.
+- If a port is already in use, portree uses linear probing to find the next available port in the range.
+- If the entire range is exhausted, widen the `port_range` in `.portree.toml`.
+
+### Stale processes
+
+- Run `portree doctor` to detect stale PIDs in the state file.
+- Use `portree down --all` to clean up and stop all services.
+- If a process was killed externally, `portree ls` will show it as `stopped` automatically.
+
+### Proxy not routing correctly
+
+- Ensure the proxy is running with `portree proxy start`.
+- Verify your browser resolves `*.localhost` — modern browsers do this per RFC 6761.
+- Check that the target service is actually running with `portree ls`.
+- The proxy routes based on the `Host` header subdomain, so access via `http://<branch-slug>.localhost:<proxy_port>`.
+
+---
+
 ## FAQ
 
 ### Does `*.localhost` work in all browsers?

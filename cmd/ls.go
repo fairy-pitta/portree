@@ -26,6 +26,12 @@ type lsEntry struct {
 var lsCmd = &cobra.Command{
 	Use:   "ls",
 	Short: "List all worktrees and their services",
+	Long: `List all git worktrees and the status of each configured service.
+
+Displays a table with worktree branch, service name, allocated port,
+running status, and PID for each service.
+
+Use --json to output the result as a JSON array for scripting and automation.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cwd, err := os.Getwd()
 		if err != nil {
@@ -67,6 +73,30 @@ var lsCmd = &cobra.Command{
 		sort.Strings(serviceNames)
 
 		entries := buildLsEntries(trees, serviceNames, st)
+
+		// Detect orphaned branches: in state but not in worktree list.
+		activeBranches := make(map[string]bool, len(trees))
+		for _, t := range trees {
+			if !t.IsBare {
+				activeBranches[t.Branch] = true
+			}
+		}
+		orphanBranches := make([]string, 0)
+		for branch := range st.Services {
+			if !activeBranches[branch] {
+				orphanBranches = append(orphanBranches, branch)
+			}
+		}
+		sort.Strings(orphanBranches)
+		for _, branch := range orphanBranches {
+			for _, svcName := range serviceNames {
+				entries = append(entries, lsEntry{
+					Worktree: branch + " (orphaned)",
+					Service:  svcName,
+					Status:   state.StatusStopped,
+				})
+			}
+		}
 
 		jsonFlag, _ := cmd.Flags().GetBool("json")
 		if jsonFlag {

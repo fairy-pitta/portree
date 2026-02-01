@@ -14,6 +14,11 @@ var openService string
 var openCmd = &cobra.Command{
 	Use:   "open",
 	Short: "Open the current worktree's service in a browser",
+	Long: `Open the current worktree's service URL in the default browser.
+
+The URL is constructed as http://<branch-slug>.localhost:<proxy_port>.
+By default, the first service (alphabetically) is used.
+Use --service to specify a different service.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cwd, err := os.Getwd()
 		if err != nil {

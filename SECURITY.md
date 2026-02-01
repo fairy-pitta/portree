@@ -30,5 +30,5 @@ portree is a local development tool. Its threat model assumes:
 ## Known Limitations
 
 - Service commands from `.portree.toml` are executed as shell commands with the current user's privileges
-- Log files are created with `0644` permissions (world-readable)
+- Log files are created with `0600` permissions (owner-readable only)
 - No authentication or authorization on the reverse proxy

@@ -140,6 +140,23 @@ func TestProxyServerStartDuplicatePort(t *testing.T) {
 	}
 }
 
+func TestRecoveryMiddleware(t *testing.T) {
+	panicking := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		panic("test panic")
+	})
+
+	handler := recoveryMiddleware(panicking)
+
+	req := httptest.NewRequest("GET", "http://localhost/", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
+	}
+}
+
 func TestHandlerResolvesToBackend(t *testing.T) {
 	dir := t.TempDir()
 	store, err := state.NewFileStore(dir)

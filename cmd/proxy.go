@@ -23,6 +23,11 @@ var proxyCmd = &cobra.Command{
 var proxyStartCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start the reverse proxy",
+	Long: `Start the reverse proxy in the foreground.
+
+Launches HTTP listeners for each configured proxy_port, routing requests
+based on the Host header subdomain (e.g., feature-auth.localhost:3000).
+The proxy runs until interrupted with Ctrl+C (SIGINT) or SIGTERM.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		stateDir := filepath.Join(repoRoot, ".portree")
 		store, err := state.NewFileStore(stateDir)
@@ -101,6 +106,10 @@ var proxyStartCmd = &cobra.Command{
 var proxyStopCmd = &cobra.Command{
 	Use:   "stop",
 	Short: "Stop the reverse proxy",
+	Long: `Stop a running reverse proxy process.
+
+Sends SIGTERM to the proxy process recorded in the state file
+and updates the state to stopped.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		stateDir := filepath.Join(repoRoot, ".portree")
 		store, err := state.NewFileStore(stateDir)
@@ -121,7 +130,9 @@ var proxyStopCmd = &cobra.Command{
 			// Send SIGTERM to the proxy process.
 			proc, err := os.FindProcess(st.Proxy.PID)
 			if err == nil {
-				_ = proc.Signal(syscall.SIGTERM)
+				if sigErr := proc.Signal(syscall.SIGTERM); sigErr != nil {
+					logging.Warn("failed to send SIGTERM to proxy process %d: %v", st.Proxy.PID, sigErr)
+				}
 			}
 
 			if err := store.WithLock(func() error {

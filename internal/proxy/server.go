@@ -7,10 +7,13 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/fairy-pitta/portree/internal/logging"
 )
 
 const shutdownTimeout = 5 * time.Second
@@ -41,9 +44,12 @@ func (p *ProxyServer) Start(proxyPorts map[string]int) error {
 
 	for port := range ports {
 		srv := &http.Server{
-			Addr:        "127.0.0.1:" + strconv.Itoa(port),
-			Handler:     p.handler(port),
-			IdleTimeout: 120 * time.Second,
+			Addr:              "127.0.0.1:" + strconv.Itoa(port),
+			Handler:           recoveryMiddleware(p.handler(port)),
+			ReadTimeout:       30 * time.Second,
+			WriteTimeout:      60 * time.Second,
+			ReadHeaderTimeout: 10 * time.Second,
+			IdleTimeout:       120 * time.Second,
 		}
 
 		ln, err := net.Listen("tcp", srv.Addr)
@@ -55,7 +61,16 @@ func (p *ProxyServer) Start(proxyPorts map[string]int) error {
 
 		p.servers = append(p.servers, srv)
 		p.listeners = append(p.listeners, ln)
-		go func() { _ = srv.Serve(ln) }()
+		go func(s *http.Server, l net.Listener) {
+			defer func() {
+				if r := recover(); r != nil {
+					logging.Error("panic in proxy server goroutine: %v\n%s", r, debug.Stack())
+				}
+			}()
+			if err := s.Serve(l); err != nil && err != http.ErrServerClosed {
+				logging.Error("proxy server error on %s: %v", s.Addr, err)
+			}
+		}(srv, ln)
 	}
 
 	return nil
@@ -84,6 +99,19 @@ func (p *ProxyServer) stopLocked() error {
 	p.servers = nil
 	p.listeners = nil
 	return lastErr
+}
+
+// recoveryMiddleware catches panics in HTTP handlers and returns 500.
+func recoveryMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if rec := recover(); rec != nil {
+				logging.Error("panic in HTTP handler: %v\n%s", rec, debug.Stack())
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
 }
 
 // handler returns an http.Handler for a specific proxy port.

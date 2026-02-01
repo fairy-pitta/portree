@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/fairy-pitta/portree/internal/git"
 	"github.com/fairy-pitta/portree/internal/logging"
@@ -16,6 +17,7 @@ import (
 var (
 	downAll     bool
 	downService string
+	downPrune   bool
 )
 
 var downCmd = &cobra.Command{
@@ -28,16 +30,21 @@ var downCmd = &cobra.Command{
 			return fmt.Errorf("getting current directory: %w", err)
 		}
 
-		if downService != "" {
-			if _, ok := cfg.Services[downService]; !ok {
-				return fmt.Errorf("unknown service %q", downService)
-			}
-		}
-
 		stateDir := filepath.Join(repoRoot, ".portree")
 		store, err := state.NewFileStore(stateDir)
 		if err != nil {
 			return fmt.Errorf("creating state store: %w", err)
+		}
+
+		// Handle --prune: remove orphaned state entries.
+		if downPrune {
+			return pruneOrphanedState(store, cwd)
+		}
+
+		if downService != "" {
+			if _, ok := cfg.Services[downService]; !ok {
+				return fmt.Errorf("unknown service %q", downService)
+			}
 		}
 
 		registry := port.NewRegistry(store, cfg)
@@ -89,8 +96,63 @@ var downCmd = &cobra.Command{
 	},
 }
 
+// pruneOrphanedState removes state entries for branches whose worktrees no longer exist.
+func pruneOrphanedState(store *state.FileStore, cwd string) error {
+	trees, err := git.ListWorktrees(cwd)
+	if err != nil {
+		return fmt.Errorf("listing worktrees: %w", err)
+	}
+
+	activeBranches := make(map[string]bool, len(trees))
+	for _, t := range trees {
+		if !t.IsBare {
+			activeBranches[t.Branch] = true
+		}
+	}
+
+	var pruned []string
+	if err := store.WithLock(func() error {
+		st, e := store.Load()
+		if e != nil {
+			return e
+		}
+
+		for branch := range st.Services {
+			if !activeBranches[branch] {
+				pruned = append(pruned, branch)
+				delete(st.Services, branch)
+			}
+		}
+
+		// Clean up port assignments for pruned branches.
+		for key := range st.PortAssignments {
+			// Keys are "branch:service".
+			branch := key
+			if idx := strings.Index(key, ":"); idx >= 0 {
+				branch = key[:idx]
+			}
+			if !activeBranches[branch] {
+				delete(st.PortAssignments, key)
+			}
+		}
+
+		return store.Save(st)
+	}); err != nil {
+		return fmt.Errorf("pruning state: %w", err)
+	}
+
+	if len(pruned) > 0 {
+		logging.Info("Pruned %d orphaned branch(es): %s", len(pruned), strings.Join(pruned, ", "))
+	} else {
+		logging.Info("No orphaned state entries found.")
+	}
+
+	return nil
+}
+
 func init() {
 	downCmd.Flags().BoolVar(&downAll, "all", false, "Stop services for all worktrees")
 	downCmd.Flags().StringVar(&downService, "service", "", "Stop only a specific service")
+	downCmd.Flags().BoolVar(&downPrune, "prune", false, "Remove state entries for deleted worktrees")
 	rootCmd.AddCommand(downCmd)
 }

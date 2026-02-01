@@ -19,7 +19,11 @@ import (
 	"github.com/fairy-pitta/portree/internal/state"
 )
 
-const pollInterval = 2 * time.Second
+const (
+	pollInterval = 2 * time.Second
+	minTermWidth  = 80
+	minTermHeight = 10
+)
 
 // Model is the top-level Bubble Tea model for the dashboard.
 type Model struct {
@@ -135,9 +139,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View implements tea.Model.
 func (m *Model) View() string {
+	if m.width > 0 && m.height > 0 && (m.width < minTermWidth || m.height < minTermHeight) {
+		return fmt.Sprintf("Terminal too small (%dx%d). Minimum: %dx%d.",
+			m.width, m.height, minTermWidth, minTermHeight)
+	}
+
 	title := titleStyle.Render(" portree dashboard ")
 
-	table := renderTable(m.rows, m.cursor)
+	table := renderTable(m.rows, m.cursor, m.width)
 	proxyLine := renderProxyStatus(m.proxyRunning, m.proxyPorts)
 	help := renderHelp(m.keys)
 
