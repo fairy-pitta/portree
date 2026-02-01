@@ -153,10 +153,8 @@ func PortKey(branch, service string) string {
 // ParsePortKey splits a port key back into branch and service.
 // Returns the original key as branch with an empty service if no separator is found.
 func ParsePortKey(key string) (branch, service string) {
-	if idx := strings.Index(key, ":"); idx >= 0 {
-		return key[:idx], key[idx+1:]
-	}
-	return key, ""
+	branch, service, _ = strings.Cut(key, ":")
+	return branch, service
 }
 
 // SetPortAssignment records a port assignment.

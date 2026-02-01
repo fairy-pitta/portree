@@ -17,6 +17,9 @@ proxy_port = 19000
 
 // setupGitRepo creates a temporary git repo and changes to it.
 // Returns the repo directory. Cleanup is handled via t.Cleanup.
+//
+// NOTE: Uses os.Chdir which mutates process-wide state.
+// Tests using this helper cannot use t.Parallel() and should run with -count=1.
 func setupGitRepo(t *testing.T) string {
 	t.Helper()
 

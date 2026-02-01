@@ -48,9 +48,11 @@ func (p *ProxyServer) Start(proxyPorts map[string]int) error {
 			Addr:              "127.0.0.1:" + strconv.Itoa(port),
 			Handler:           recoveryMiddleware(p.handler(port)),
 			ReadTimeout:       30 * time.Second,
-			WriteTimeout:      60 * time.Second,
 			ReadHeaderTimeout: 10 * time.Second,
 			IdleTimeout:       120 * time.Second,
+			// WriteTimeout is intentionally 0 (unlimited): dev backends often use
+			// SSE or chunked streaming (e.g. Vite/webpack HMR) which would be
+			// terminated by a fixed write deadline.
 		}
 
 		ln, err := net.Listen("tcp", srv.Addr)

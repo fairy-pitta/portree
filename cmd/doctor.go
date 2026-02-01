@@ -164,8 +164,12 @@ func checkStaleState(root string) checkResult {
 		return checkResult{name: "state file healthy", ok: true, detail: "no state directory"}
 	}
 
-	st, err := store.Load()
-	if err != nil {
+	var st *state.State
+	if err := store.WithLock(func() error {
+		var e error
+		st, e = store.Load()
+		return e
+	}); err != nil {
 		return checkResult{name: "state file healthy", ok: false, detail: err.Error()}
 	}
 
@@ -196,8 +200,12 @@ func checkStaleWorktrees(root, cwd string) checkResult {
 		return checkResult{name: "worktree state consistent", ok: true}
 	}
 
-	st, err := store.Load()
-	if err != nil {
+	var st *state.State
+	if err := store.WithLock(func() error {
+		var e error
+		st, e = store.Load()
+		return e
+	}); err != nil {
 		return checkResult{name: "worktree state consistent", ok: false, detail: err.Error()}
 	}
 

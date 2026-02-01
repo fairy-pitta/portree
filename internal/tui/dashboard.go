@@ -49,7 +49,7 @@ func renderTable(rows []ServiceRow, cursor int, termWidth int) string {
 		lipgloss.NewStyle().Width(colStatusWidth).Bold(true).Foreground(colorWhite).Render("STATUS"),
 		lipgloss.NewStyle().Width(colPIDWidth).Bold(true).Foreground(colorWhite).Render("PID"),
 	}
-	header := strings.Join(headerCells, "  ")
+	header := "  " + strings.Join(headerCells, "  ") // leading spaces align with cursor prefix on data rows
 	b.WriteString(headerStyle.Render(header))
 	b.WriteString("\n")
 

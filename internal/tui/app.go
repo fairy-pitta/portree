@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	pollInterval = 2 * time.Second
+	pollInterval  = 2 * time.Second
 	minTermWidth  = 80
 	minTermHeight = 10
 )

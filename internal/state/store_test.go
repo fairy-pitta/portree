@@ -30,6 +30,67 @@ func TestPortKey(t *testing.T) {
 	}
 }
 
+func TestParsePortKey(t *testing.T) {
+	tests := []struct {
+		key     string
+		branch  string
+		service string
+	}{
+		{"main:web", "main", "web"},
+		{"feature/auth:api", "feature/auth", "api"},
+		{"no-separator", "no-separator", ""},
+		{":", "", ""},
+		{"a:b:c", "a", "b:c"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.key, func(t *testing.T) {
+			b, s := ParsePortKey(tt.key)
+			if b != tt.branch || s != tt.service {
+				t.Errorf("ParsePortKey(%q) = (%q, %q), want (%q, %q)",
+					tt.key, b, s, tt.branch, tt.service)
+			}
+		})
+	}
+}
+
+func TestOrphanedBranches(t *testing.T) {
+	t.Run("detects orphans", func(t *testing.T) {
+		st := emptyState()
+		SetServiceState(st, "main", "web", &ServiceState{Port: 3100})
+		SetServiceState(st, "stale-branch", "web", &ServiceState{Port: 3200})
+		SetServiceState(st, "another-stale", "api", &ServiceState{Port: 3300})
+
+		active := map[string]bool{"main": true}
+		orphaned := OrphanedBranches(st, active)
+
+		if len(orphaned) != 2 {
+			t.Fatalf("OrphanedBranches() len = %d, want 2", len(orphaned))
+		}
+	})
+
+	t.Run("no orphans", func(t *testing.T) {
+		st := emptyState()
+		SetServiceState(st, "main", "web", &ServiceState{Port: 3100})
+
+		active := map[string]bool{"main": true}
+		orphaned := OrphanedBranches(st, active)
+
+		if len(orphaned) != 0 {
+			t.Fatalf("OrphanedBranches() len = %d, want 0", len(orphaned))
+		}
+	})
+
+	t.Run("empty state", func(t *testing.T) {
+		st := emptyState()
+		active := map[string]bool{"main": true}
+		orphaned := OrphanedBranches(st, active)
+
+		if len(orphaned) != 0 {
+			t.Fatalf("OrphanedBranches() len = %d, want 0", len(orphaned))
+		}
+	})
+}
+
 func TestSetAndGetServiceState(t *testing.T) {
 	t.Run("set and get", func(t *testing.T) {
 		st := emptyState()
