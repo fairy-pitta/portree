@@ -5,6 +5,12 @@ dist/
 # State (runtime)
 .portree/
 
+# Local config (user projects have their own)
+.portree.toml
+
+# Planning docs
+plan/
+
 # OS
 .DS_Store
 Thumbs.db
