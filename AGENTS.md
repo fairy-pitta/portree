@@ -1,168 +1,143 @@
 # AI Agent Instructions for Portree
 
-This document provides context for AI coding assistants working with portree or projects that use portree.
+## IMPORTANT: Auto-Execution Behavior
 
-## Overview
+This project uses **portree** for multi-branch development. AI agents should **automatically** manage services without waiting for explicit commands.
 
-**Portree** is a Git Worktree Server Manager that solves the problem of running the same service on multiple branches simultaneously. It provides:
+### On Session Start
 
-- **Automatic port allocation**: Each branch/service gets a unique port
-- **Subdomain routing**: Access branches via `<branch>.localhost:<port>`
-- **Process management**: Start, stop, restart services across worktrees
-- **Interactive dashboard**: TUI for managing all services
+**AUTOMATICALLY execute when beginning work:**
+
+```bash
+# Check if portree project
+if [ -f .portree.toml ]; then
+  # Start services
+  portree up
+
+  # Enable subdomain routing
+  portree proxy start
+
+  # Open browser
+  portree open
+fi
+```
+
+Then report to user:
+```
+Started portree services:
+- frontend: http://main.localhost:3000
+- backend: http://main.localhost:8000
+Browser opened.
+```
+
+### On Branch Switch
+
+**AUTOMATICALLY execute when user switches to or mentions a branch:**
+
+```bash
+# Create worktree if needed
+portree add <branch> 2>/dev/null || true
+
+# Navigate to worktree (if not already there)
+cd "$(git worktree list | grep '<branch>' | head -1 | awk '{print $1}')" 2>/dev/null || true
+
+# Start services
+portree up
+
+# Open browser
+portree open
+```
+
+### On "Compare Branches" Request
+
+**AUTOMATICALLY execute:**
+
+```bash
+portree up --all
+portree proxy start
+```
+
+Report URLs:
+```
+Branches running:
+- main: http://main.localhost:3000
+- feature-x: http://feature-x.localhost:3000
+```
+
+### On Session End / Cleanup
+
+**When user says "done", "finished", "終わり", etc.:**
+
+```bash
+portree down --all
+```
+
+---
 
 ## Quick Reference
 
-### Installation
+### Commands
 ```bash
-brew install fairy-pitta/tap/portree  # macOS
-# Or download from https://github.com/fairy-pitta/portree/releases
+portree up              # Start current branch
+portree up --all        # Start all branches
+portree down            # Stop current
+portree down --all      # Stop all
+portree proxy start     # Enable subdomain routing
+portree open [service]  # Open browser
+portree ls              # Show status
+portree dash            # Interactive dashboard
+portree add <branch>    # Create worktree
+portree remove <branch> # Remove worktree
 ```
+
+### URL Pattern
+```
+http://<branch-slug>.localhost:<proxy-port>
+```
+Examples:
+- `http://main.localhost:3000`
+- `http://feature-auth.localhost:3000`
+
+### Environment Variables (injected into services)
+| Variable | Description |
+|----------|-------------|
+| `PORT` | Assigned port |
+| `PT_BRANCH` | Branch name |
+| `PT_BRANCH_SLUG` | URL-safe branch |
+| `PT_{SERVICE}_PORT` | Other service's port |
+| `PT_{SERVICE}_URL` | Other service's proxy URL |
 
 ### Configuration (.portree.toml)
 ```toml
-[services.SERVICE_NAME]
-command = "COMMAND"           # Required: command to run
-port_env = "PORT"             # Env var for port (default: PORT)
-port_range = [3100, 3199]     # Port range (optional)
-env = { KEY = "value" }       # Additional env vars
-```
-
-### Essential Commands
-```bash
-portree add <branch>     # Create worktree
-portree up [--all]       # Start services
-portree down [--all]     # Stop services
-portree ls               # List status
-portree proxy start      # Enable subdomain routing
-portree dash             # Interactive dashboard
-portree doctor           # Diagnose issues
-```
-
-### Environment Variables (injected by portree)
-| Variable | Example | Description |
-|----------|---------|-------------|
-| `PORT` | `3150` | Assigned port |
-| `PT_BRANCH` | `feature/auth` | Branch name |
-| `PT_BRANCH_SLUG` | `feature-auth` | URL-safe branch |
-| `PT_SERVICE` | `frontend` | Service name |
-| `PT_{SVC}_PORT` | `8150` | Other service's port |
-| `PT_{SVC}_URL` | `http://feature-auth.localhost:8000` | Other service's URL |
-
----
-
-## Detailed Guide
-
-### Setting Up Portree in a Project
-
-1. **Create `.portree.toml`** in the project root
-2. **Define services** with their start commands
-3. **Run `portree doctor`** to verify configuration
-
-Example configurations:
-
-**Single service (Node.js):**
-```toml
-[services.web]
-command = "npm run dev"
-port_env = "PORT"
-```
-
-**Multiple services:**
-```toml
 [services.frontend]
 command = "npm run dev"
+port_env = "PORT"
 port_range = [3100, 3199]
 
-[services.api]
-command = "go run ./cmd/server"
+[services.backend]
+command = "go run ."
 port_range = [8100, 8199]
 ```
 
-**With cross-service communication:**
-```toml
-[services.frontend]
-command = "npm run dev"
-env = { API_URL = "http://localhost:$PT_API_PORT" }
+---
 
-[services.api]
-command = "python -m uvicorn main:app --port $PORT"
-```
+## Troubleshooting
 
-### Workflow: Feature Branch Development
-
-```bash
-# 1. Create worktree for feature branch
-portree add feature/new-feature
-
-# 2. Start all services (main + feature)
-portree up --all
-
-# 3. Enable subdomain routing
-portree proxy start
-
-# 4. Access both versions:
-#    - main: http://main.localhost:3000
-#    - feature: http://feature-new-feature.localhost:3000
-
-# 5. When done, clean up
-portree down --all
-portree remove feature/new-feature
-```
-
-### Workflow: Interactive Management
-
-```bash
-portree dash
-```
-
-Dashboard keybindings:
-- `j/k` or arrows: Navigate
-- `s`: Start selected
-- `x`: Stop selected
-- `r`: Restart
-- `o`: Open in browser
-- `a`: Start all
-- `X`: Stop all
-- `l`: View logs
-- `p`: Toggle proxy
-- `q`: Quit
-
-### Troubleshooting
-
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| "not a known worktree" | Not in a git worktree | `cd` to a worktree or `portree add <branch>` |
-| Service stops immediately | Port in use | `lsof -i :<port>` then kill orphan process |
-| Proxy not routing | Proxy not started | `portree proxy start` |
-| Can't connect to other service | Wrong URL/port | Use `$PT_{SERVICE}_PORT` or `$PT_{SERVICE}_URL` |
-| "no available port" | Port range exhausted | Expand `port_range` or stop unused worktrees |
-
-### Log Files
-
-Logs are stored in `~/.portree/logs/<branch>.<service>.log`
-
-```bash
-# View logs
-cat ~/.portree/logs/main.frontend.log
-tail -f ~/.portree/logs/feature-auth.api.log
-```
+| Issue | Solution |
+|-------|----------|
+| Service won't start | `portree doctor` |
+| Port in use | `lsof -i :<port>` then kill process |
+| Proxy not working | `portree proxy start` |
+| Logs | `~/.portree/logs/<branch>.<service>.log` |
 
 ---
 
-## For AI Assistants
+## Installation
 
-When helping users with portree:
+```bash
+# macOS
+brew install fairy-pitta/tap/portree
 
-1. **Check if portree is installed**: `portree version`
-2. **Check configuration**: `portree doctor`
-3. **Check current state**: `portree ls`
-4. **Suggest `.portree.toml`** appropriate for their stack
-5. **Use environment variables** for cross-service communication
-6. **Recommend `portree dash`** for interactive management
-
-Common user intents:
-- "Run multiple branches" → `portree add` + `portree up --all`
-- "Compare branches" → `portree proxy start` + subdomain access
-- "Service won't start" → `portree doctor` + check logs
-- "Set up portree" → Create appropriate `.portree.toml`
+# Other
+# Download from https://github.com/fairy-pitta/portree/releases
+```
