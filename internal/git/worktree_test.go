@@ -1,6 +1,9 @@
 package git
 
 import (
+	"os"
+	"os/exec"
+	"path/filepath"
 	"testing"
 )
 
@@ -93,6 +96,287 @@ func TestDetectSlugCollisions(t *testing.T) {
 			t.Errorf("DetectSlugCollisions(nil) = %v, want empty", got)
 		}
 	})
+}
+
+// initTestRepo creates a temporary git repo with an initial commit.
+func initTestRepo(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	runGit := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		cmd.Env = append(os.Environ(),
+			"GIT_AUTHOR_NAME=test",
+			"GIT_AUTHOR_EMAIL=test@test.com",
+			"GIT_COMMITTER_NAME=test",
+			"GIT_COMMITTER_EMAIL=test@test.com",
+		)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	runGit("init")
+	runGit("commit", "--allow-empty", "-m", "init")
+	return dir
+}
+
+func TestFindRepoRoot(t *testing.T) {
+	t.Run("from repo root", func(t *testing.T) {
+		dir := initTestRepo(t)
+		root, err := FindRepoRoot(dir)
+		if err != nil {
+			t.Fatalf("FindRepoRoot() error: %v", err)
+		}
+		// Resolve symlinks for macOS /private/var/folders vs /var/folders
+		wantAbs, _ := filepath.EvalSymlinks(dir)
+		gotAbs, _ := filepath.EvalSymlinks(root)
+		if gotAbs != wantAbs {
+			t.Errorf("FindRepoRoot() = %q, want %q", gotAbs, wantAbs)
+		}
+	})
+
+	t.Run("from subdirectory", func(t *testing.T) {
+		dir := initTestRepo(t)
+		sub := filepath.Join(dir, "sub", "deep")
+		if err := os.MkdirAll(sub, 0755); err != nil {
+			t.Fatal(err)
+		}
+		root, err := FindRepoRoot(sub)
+		if err != nil {
+			t.Fatalf("FindRepoRoot() error: %v", err)
+		}
+		wantAbs, _ := filepath.EvalSymlinks(dir)
+		gotAbs, _ := filepath.EvalSymlinks(root)
+		if gotAbs != wantAbs {
+			t.Errorf("FindRepoRoot() = %q, want %q", gotAbs, wantAbs)
+		}
+	})
+
+	t.Run("not a git repo", func(t *testing.T) {
+		dir := t.TempDir()
+		_, err := FindRepoRoot(dir)
+		if err == nil {
+			t.Error("FindRepoRoot() should error for non-git directory")
+		}
+	})
+}
+
+func TestCommonDir(t *testing.T) {
+	dir := initTestRepo(t)
+
+	common, err := CommonDir(dir)
+	if err != nil {
+		t.Fatalf("CommonDir() error: %v", err)
+	}
+
+	// For a regular repo, CommonDir should point to .git
+	wantAbs, _ := filepath.EvalSymlinks(filepath.Join(dir, ".git"))
+	gotAbs, _ := filepath.EvalSymlinks(common)
+	if gotAbs != wantAbs {
+		t.Errorf("CommonDir() = %q, want %q", gotAbs, wantAbs)
+	}
+}
+
+func TestMainWorktreeRoot(t *testing.T) {
+	dir := initTestRepo(t)
+
+	root, err := MainWorktreeRoot(dir)
+	if err != nil {
+		t.Fatalf("MainWorktreeRoot() error: %v", err)
+	}
+
+	wantAbs, _ := filepath.EvalSymlinks(dir)
+	gotAbs, _ := filepath.EvalSymlinks(root)
+	if gotAbs != wantAbs {
+		t.Errorf("MainWorktreeRoot() = %q, want %q", gotAbs, wantAbs)
+	}
+}
+
+func TestListWorktrees(t *testing.T) {
+	dir := initTestRepo(t)
+
+	trees, err := ListWorktrees(dir)
+	if err != nil {
+		t.Fatalf("ListWorktrees() error: %v", err)
+	}
+
+	if len(trees) == 0 {
+		t.Fatal("ListWorktrees() returned 0 worktrees")
+	}
+
+	// At least the main worktree should be present
+	found := false
+	for _, tree := range trees {
+		if tree.Branch == "main" || tree.Branch == "master" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("ListWorktrees() should contain main/master branch")
+	}
+}
+
+func TestListWorktrees_WithAdditionalWorktree(t *testing.T) {
+	dir := initTestRepo(t)
+
+	// Create a branch and worktree
+	runGit := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		cmd.Env = append(os.Environ(),
+			"GIT_AUTHOR_NAME=test",
+			"GIT_AUTHOR_EMAIL=test@test.com",
+			"GIT_COMMITTER_NAME=test",
+			"GIT_COMMITTER_EMAIL=test@test.com",
+		)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+
+	wtDir := filepath.Join(t.TempDir(), "feature-auth")
+	runGit("worktree", "add", "-b", "feature/auth", wtDir)
+
+	trees, err := ListWorktrees(dir)
+	if err != nil {
+		t.Fatalf("ListWorktrees() error: %v", err)
+	}
+
+	if len(trees) < 2 {
+		t.Fatalf("ListWorktrees() returned %d worktrees, want >= 2", len(trees))
+	}
+
+	// Check the additional worktree
+	found := false
+	for _, tree := range trees {
+		if tree.Branch == "feature/auth" {
+			found = true
+			wantAbs, _ := filepath.EvalSymlinks(wtDir)
+			gotAbs, _ := filepath.EvalSymlinks(tree.Path)
+			if gotAbs != wantAbs {
+				t.Errorf("worktree path = %q, want %q", gotAbs, wantAbs)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Error("ListWorktrees() should contain feature/auth branch")
+	}
+}
+
+func TestCurrentWorktree(t *testing.T) {
+	dir := initTestRepo(t)
+	// Resolve symlinks (macOS /var/folders → /private/var/folders)
+	dir, _ = filepath.EvalSymlinks(dir)
+
+	tree, err := CurrentWorktree(dir)
+	if err != nil {
+		t.Fatalf("CurrentWorktree() error: %v", err)
+	}
+
+	if tree.Branch != "main" && tree.Branch != "master" {
+		t.Errorf("CurrentWorktree().Branch = %q, want main or master", tree.Branch)
+	}
+}
+
+func TestCurrentWorktree_FromSubdirectory(t *testing.T) {
+	dir := initTestRepo(t)
+	dir, _ = filepath.EvalSymlinks(dir)
+	sub := filepath.Join(dir, "subdir")
+	if err := os.MkdirAll(sub, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	tree, err := CurrentWorktree(sub)
+	if err != nil {
+		t.Fatalf("CurrentWorktree() from subdir error: %v", err)
+	}
+
+	if tree.Branch != "main" && tree.Branch != "master" {
+		t.Errorf("CurrentWorktree().Branch = %q, want main or master", tree.Branch)
+	}
+}
+
+func TestCurrentWorktree_NotGitRepo(t *testing.T) {
+	dir := t.TempDir()
+	_, err := CurrentWorktree(dir)
+	if err == nil {
+		t.Error("CurrentWorktree() should error for non-git directory")
+	}
+}
+
+func TestCommonDir_FromWorktree(t *testing.T) {
+	dir := initTestRepo(t)
+
+	runGit := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		cmd.Env = append(os.Environ(),
+			"GIT_AUTHOR_NAME=test",
+			"GIT_AUTHOR_EMAIL=test@test.com",
+			"GIT_COMMITTER_NAME=test",
+			"GIT_COMMITTER_EMAIL=test@test.com",
+		)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+
+	wtDir := filepath.Join(t.TempDir(), "wt-test")
+	runGit("worktree", "add", "-b", "test-branch", wtDir)
+
+	// CommonDir from the additional worktree should point to main's .git
+	common, err := CommonDir(wtDir)
+	if err != nil {
+		t.Fatalf("CommonDir() from worktree error: %v", err)
+	}
+
+	mainGit, _ := filepath.EvalSymlinks(filepath.Join(dir, ".git"))
+	gotAbs, _ := filepath.EvalSymlinks(common)
+	if gotAbs != mainGit {
+		t.Errorf("CommonDir() from worktree = %q, want %q", gotAbs, mainGit)
+	}
+}
+
+func TestMainWorktreeRoot_FromWorktree(t *testing.T) {
+	dir := initTestRepo(t)
+
+	runGit := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		cmd.Env = append(os.Environ(),
+			"GIT_AUTHOR_NAME=test",
+			"GIT_AUTHOR_EMAIL=test@test.com",
+			"GIT_COMMITTER_NAME=test",
+			"GIT_COMMITTER_EMAIL=test@test.com",
+		)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+
+	wtDir := filepath.Join(t.TempDir(), "wt-test2")
+	runGit("worktree", "add", "-b", "test-branch2", wtDir)
+
+	root, err := MainWorktreeRoot(wtDir)
+	if err != nil {
+		t.Fatalf("MainWorktreeRoot() from worktree error: %v", err)
+	}
+
+	wantAbs, _ := filepath.EvalSymlinks(dir)
+	gotAbs, _ := filepath.EvalSymlinks(root)
+	if gotAbs != wantAbs {
+		t.Errorf("MainWorktreeRoot() from worktree = %q, want %q", gotAbs, wantAbs)
+	}
 }
 
 func TestParsePorcelain(t *testing.T) {
