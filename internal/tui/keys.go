@@ -4,17 +4,17 @@ import "github.com/charmbracelet/bubbles/key"
 
 // KeyMap defines all key bindings for the dashboard.
 type KeyMap struct {
-	Up         key.Binding
-	Down       key.Binding
-	Start      key.Binding
-	Stop       key.Binding
-	Restart    key.Binding
-	Open       key.Binding
-	StartAll   key.Binding
-	StopAll    key.Binding
+	Up          key.Binding
+	Down        key.Binding
+	Start       key.Binding
+	Stop        key.Binding
+	Restart     key.Binding
+	Open        key.Binding
+	StartAll    key.Binding
+	StopAll     key.Binding
 	ToggleProxy key.Binding
-	ViewLogs   key.Binding
-	Quit       key.Binding
+	ViewLogs    key.Binding
+	Quit        key.Binding
 }
 
 // DefaultKeyMap returns the default key bindings.

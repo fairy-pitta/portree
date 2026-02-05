@@ -21,7 +21,7 @@ type RunnerConfig struct {
 	Branch      string
 	BranchSlug  string
 	Command     string
-	Dir         string            // absolute working directory
+	Dir         string // absolute working directory
 	Port        int
 	Env         map[string]string // merged environment variables
 	LogDir      string            // directory for log files
@@ -202,7 +202,7 @@ func IsPortAvailable(port int) bool {
 	if err != nil {
 		return false
 	}
-	ln.Close()
+	_ = ln.Close()
 	return true
 }
 

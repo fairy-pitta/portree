@@ -1,6 +1,7 @@
 package state
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -295,7 +296,7 @@ func TestFileStoreWithLock(t *testing.T) {
 		err := store.WithLock(func() error {
 			return sentinel
 		})
-		if err != sentinel {
+		if !errors.Is(err, sentinel) {
 			t.Errorf("WithLock() error = %v, want sentinel", err)
 		}
 	})

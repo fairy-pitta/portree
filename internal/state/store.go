@@ -40,7 +40,7 @@ type ProxyState struct {
 type State struct {
 	// Services maps branch -> service name -> ServiceState.
 	Services map[string]map[string]*ServiceState `json:"services"`
-	Proxy    ProxyState                           `json:"proxy"`
+	Proxy    ProxyState                          `json:"proxy"`
 	// PortAssignments maps "branch:service" -> port.
 	PortAssignments map[string]int `json:"port_assignments"`
 }
