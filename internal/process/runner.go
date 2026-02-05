@@ -2,6 +2,7 @@ package process
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -192,6 +193,17 @@ func IsProcessRunning(pid int) bool {
 	}
 	err = process.Signal(syscall.Signal(0))
 	return err == nil
+}
+
+// IsPortAvailable checks if a TCP port is available for binding.
+func IsPortAvailable(port int) bool {
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return false
+	}
+	ln.Close()
+	return true
 }
 
 // buildEnv constructs the full environment for the child process.

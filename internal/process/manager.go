@@ -98,6 +98,15 @@ func (m *Manager) StartServices(tree *git.Worktree, serviceFilter string) []Serv
 		// Clean up stale processes.
 		m.cleanStale(tree.Branch, svcName)
 
+		// Check if port is available. If not, the port might be held by an orphan process.
+		if !IsPortAvailable(p) {
+			results = append(results, ServiceResult{
+				Branch: tree.Branch, Service: svcName, Port: p,
+				Err: fmt.Errorf("port %d is already in use (orphan process?)", p),
+			})
+			continue
+		}
+
 		svc := m.cfg.Services[svcName]
 		command := m.cfg.CommandForBranch(svcName, tree.Branch)
 		env := m.cfg.EnvForBranch(svcName, tree.Branch)

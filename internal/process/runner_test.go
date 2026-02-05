@@ -1,6 +1,7 @@
 package process
 
 import (
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -384,4 +385,30 @@ func TestBuildEnvNullByte(t *testing.T) {
 	if _, ok := lookup["GOOD"]; !ok {
 		t.Error("GOOD env var should be present")
 	}
+}
+
+func TestIsPortAvailable(t *testing.T) {
+	t.Run("available port", func(t *testing.T) {
+		// Port 0 lets the OS pick a free port
+		if !IsPortAvailable(59999) {
+			t.Skip("port 59999 is in use, skipping test")
+		}
+	})
+
+	t.Run("occupied port", func(t *testing.T) {
+		// Start a listener on a random port
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatalf("failed to create listener: %v", err)
+		}
+		defer ln.Close()
+
+		// Get the actual port
+		port := ln.Addr().(*net.TCPAddr).Port
+
+		// Now check - should be unavailable
+		if IsPortAvailable(port) {
+			t.Errorf("port %d should be unavailable while listener is active", port)
+		}
+	})
 }
