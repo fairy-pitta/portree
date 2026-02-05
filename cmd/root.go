@@ -17,9 +17,9 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "portree",
-	Short: "Git Worktree Server Manager",
-	Long:  "portree manages multiple dev servers per git worktree with automatic port allocation and reverse proxy routing.",
+	Use:           "portree",
+	Short:         "Git Worktree Server Manager",
+	Long:          "portree manages multiple dev servers per git worktree with automatic port allocation and reverse proxy routing.",
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {

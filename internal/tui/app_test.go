@@ -13,6 +13,16 @@ import (
 	"github.com/fairy-pitta/portree/internal/state"
 )
 
+// mustModel asserts the tea.Model is *Model, failing the test if not.
+func mustModel(t *testing.T, m tea.Model) *Model {
+	t.Helper()
+	model, ok := m.(*Model)
+	if !ok {
+		t.Fatalf("expected *Model, got %T", m)
+	}
+	return model
+}
+
 // testModel creates a minimal Model for testing without git/filesystem dependencies.
 func testModel(t *testing.T, rows []ServiceRow) *Model {
 	t.Helper()
@@ -84,7 +94,7 @@ func TestModelUpdate_WindowSizeMsg(t *testing.T) {
 	m := testModel(t, nil)
 
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 50})
-	model := updated.(*Model)
+	model := mustModel(t, updated)
 
 	if model.width != 120 {
 		t.Errorf("width = %d, want 120", model.width)
@@ -104,28 +114,28 @@ func TestModelUpdate_CursorMovement(t *testing.T) {
 
 	// Move down
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
-	model := updated.(*Model)
+	model := mustModel(t, updated)
 	if model.cursor != 1 {
 		t.Errorf("after 'j', cursor = %d, want 1", model.cursor)
 	}
 
 	// Move down again
 	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
-	model = updated.(*Model)
+	model = mustModel(t, updated)
 	if model.cursor != 2 {
 		t.Errorf("after second 'j', cursor = %d, want 2", model.cursor)
 	}
 
 	// Move down at bottom (should stay)
 	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
-	model = updated.(*Model)
+	model = mustModel(t, updated)
 	if model.cursor != 2 {
 		t.Errorf("at bottom 'j', cursor = %d, want 2", model.cursor)
 	}
 
 	// Move up
 	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
-	model = updated.(*Model)
+	model = mustModel(t, updated)
 	if model.cursor != 1 {
 		t.Errorf("after 'k', cursor = %d, want 1", model.cursor)
 	}
@@ -138,7 +148,7 @@ func TestModelUpdate_CursorUpAtTop(t *testing.T) {
 	m := testModel(t, rows)
 
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
-	model := updated.(*Model)
+	model := mustModel(t, updated)
 	if model.cursor != 0 {
 		t.Errorf("at top 'k', cursor = %d, want 0", model.cursor)
 	}
@@ -152,13 +162,13 @@ func TestModelUpdate_ArrowKeys(t *testing.T) {
 	m := testModel(t, rows)
 
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
-	model := updated.(*Model)
+	model := mustModel(t, updated)
 	if model.cursor != 1 {
 		t.Errorf("after down arrow, cursor = %d, want 1", model.cursor)
 	}
 
 	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyUp})
-	model = updated.(*Model)
+	model = mustModel(t, updated)
 	if model.cursor != 0 {
 		t.Errorf("after up arrow, cursor = %d, want 0", model.cursor)
 	}
@@ -181,7 +191,7 @@ func TestModelUpdate_StatusUpdateMsg(t *testing.T) {
 	}
 
 	updated, _ := m.Update(StatusUpdateMsg{Rows: newRows})
-	model := updated.(*Model)
+	model := mustModel(t, updated)
 
 	if len(model.rows) != 1 {
 		t.Fatalf("rows len = %d, want 1", len(model.rows))
@@ -205,7 +215,7 @@ func TestModelUpdate_StatusUpdateMsg_CursorClamp(t *testing.T) {
 		{Branch: "main", Service: "frontend"},
 	}
 	updated, _ := m.Update(StatusUpdateMsg{Rows: newRows})
-	model := updated.(*Model)
+	model := mustModel(t, updated)
 
 	if model.cursor != 0 {
 		t.Errorf("cursor = %d, want 0 (clamped to new last row)", model.cursor)
@@ -216,7 +226,7 @@ func TestModelUpdate_ActionResultMsg(t *testing.T) {
 	m := testModel(t, nil)
 
 	updated, _ := m.Update(ActionResultMsg{Message: "Started frontend", IsError: false})
-	model := updated.(*Model)
+	model := mustModel(t, updated)
 
 	if model.statusMsg != "Started frontend" {
 		t.Errorf("statusMsg = %q, want %q", model.statusMsg, "Started frontend")
@@ -227,7 +237,7 @@ func TestModelUpdate_ToggleProxy(t *testing.T) {
 	m := testModel(t, nil)
 
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
-	model := updated.(*Model)
+	model := mustModel(t, updated)
 
 	if model.statusMsg == "" {
 		t.Error("toggle proxy should set a status message")

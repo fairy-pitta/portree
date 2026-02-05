@@ -364,9 +364,9 @@ func TestBuildEnvNullByte(t *testing.T) {
 			Dir:         "/tmp",
 			Port:        3000,
 			Env: map[string]string{
-				"GOOD":           "value",
-				"BAD\x00KEY":     "value",
-				"ALSO_BAD":       "val\x00ue",
+				"GOOD":       "value",
+				"BAD\x00KEY": "value",
+				"ALSO_BAD":   "val\x00ue",
 			},
 			AllServicePorts:      map[string]int{},
 			AllServiceProxyPorts: map[string]int{},
@@ -401,10 +401,14 @@ func TestIsPortAvailable(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to create listener: %v", err)
 		}
-		defer ln.Close()
+		defer func() { _ = ln.Close() }()
 
 		// Get the actual port
-		port := ln.Addr().(*net.TCPAddr).Port
+		addr, ok := ln.Addr().(*net.TCPAddr)
+		if !ok {
+			t.Fatal("expected *net.TCPAddr")
+		}
+		port := addr.Port
 
 		// Now check - should be unavailable
 		if IsPortAvailable(port) {

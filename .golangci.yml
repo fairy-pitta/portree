@@ -1,6 +1,12 @@
+version: "2"
+
 run:
   timeout: 5m
-  modules-download-mode: readonly
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
 
 linters:
   enable:
@@ -9,9 +15,6 @@ linters:
     - ineffassign
     - staticcheck
     - unused
-    - gosimple
-    - gofmt
-    - goimports
     - misspell
     - unconvert
     - gocritic
@@ -19,55 +22,16 @@ linters:
     - bodyclose
     - durationcheck
     - errorlint
-    - exportloopref
     - makezero
-    - nilerr
     - predeclared
-    - revive
     - whitespace
-
-linters-settings:
-  errcheck:
-    check-type-assertions: true
-  govet:
-    enable-all: true
-    disable:
-      - fieldalignment
-  goimports:
-    local-prefixes: github.com/fairy-pitta/portree
-  misspell:
-    locale: US
-  revive:
-    rules:
-      - name: blank-imports
-      - name: context-as-argument
-      - name: context-keys-type
-      - name: dot-imports
-      - name: error-return
-      - name: error-strings
-      - name: error-naming
-      - name: exported
-      - name: increment-decrement
-      - name: var-naming
-      - name: package-comments
-        disabled: true
-      - name: range
-      - name: receiver-naming
-      - name: time-naming
-      - name: unexported-return
-      - name: indent-error-flow
-      - name: errorf
-      - name: empty-block
-      - name: superfluous-else
-      - name: unreachable-code
-
-issues:
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck
-        - gocritic
-    - path: cmd/
-      linters:
-        - revive
-      text: "exported:"
+  settings:
+    errcheck:
+      check-type-assertions: true
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+        - shadow
+    misspell:
+      locale: US

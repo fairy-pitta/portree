@@ -35,12 +35,12 @@ func Allocate(branch, service string, svc config.ServiceConfig, fixedPort int, u
 	return 0, fmt.Errorf("no available port in range [%d, %d] for %s/%s", pr.Min, pr.Max, branch, service)
 }
 
-// hashPort returns a port within [min, max] based on FNV32 of branch+service.
-func hashPort(branch, service string, min, max int) int {
+// hashPort returns a port within [minPort, maxPort] based on FNV32 of branch+service.
+func hashPort(branch, service string, minPort, maxPort int) int {
 	h := fnv.New32a()
 	h.Write([]byte(branch + ":" + service))
-	rangeSize := max - min + 1
-	return min + int(h.Sum32())%rangeSize
+	rangeSize := maxPort - minPort + 1
+	return minPort + int(h.Sum32())%rangeSize
 }
 
 // isPortFree checks if a TCP port is available by attempting to listen on it.

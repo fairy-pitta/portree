@@ -123,12 +123,13 @@ func buildLsEntries(trees []git.Worktree, serviceNames []string, st *state.State
 			ss := state.GetServiceState(st, tree.Branch, svcName)
 			if ss != nil {
 				e.Port = ss.Port
-				if ss.PID > 0 && process.IsProcessRunning(ss.PID) {
+				switch {
+				case ss.PID > 0 && process.IsProcessRunning(ss.PID):
 					e.Status = state.StatusRunning
 					e.PID = ss.PID
-				} else if ss.Status == state.StatusRunning && ss.PID > 0 {
+				case ss.Status == state.StatusRunning && ss.PID > 0:
 					e.Status = state.StatusStopped // stale
-				} else {
+				default:
 					e.Status = ss.Status
 				}
 			}
