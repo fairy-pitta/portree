@@ -69,6 +69,11 @@ func CurrentWorktree(dir string) (*Worktree, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Resolve symlinks for proper path comparison (e.g., /tmp -> /private/tmp on macOS)
+	absDir, err = filepath.EvalSymlinks(absDir)
+	if err != nil {
+		return nil, err
+	}
 	trees, err := ListWorktrees(dir)
 	if err != nil {
 		return nil, err
