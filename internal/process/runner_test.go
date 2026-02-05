@@ -2,6 +2,7 @@ package process
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -245,4 +246,142 @@ func TestStopPID(t *testing.T) {
 			t.Errorf("StopPID(nonexistent) = %v, want nil", err)
 		}
 	})
+
+	t.Run("stop running process", func(t *testing.T) {
+		// Start a process, get its PID, then stop via StopPID
+		r := newTestRunner(t, "sleep 60")
+		pid, err := r.Start()
+		if err != nil {
+			t.Fatalf("Start() error: %v", err)
+		}
+
+		if !IsProcessRunning(pid) {
+			t.Fatal("process should be running before StopPID")
+		}
+
+		err = StopPID(pid)
+		if err != nil {
+			t.Fatalf("StopPID() error: %v", err)
+		}
+
+		// Give OS time to clean up
+		time.Sleep(200 * time.Millisecond)
+		if IsProcessRunning(pid) {
+			t.Error("process should be dead after StopPID")
+		}
+	})
+}
+
+func TestRunnerLogOutput(t *testing.T) {
+	logDir := t.TempDir()
+	r := NewRunner(RunnerConfig{
+		ServiceName: "test-svc",
+		Branch:      "main",
+		BranchSlug:  "main",
+		Command:     "echo 'hello from test'",
+		Dir:         t.TempDir(),
+		Port:        9999,
+		Env:         map[string]string{},
+		LogDir:      logDir,
+	})
+
+	_, err := r.Start()
+	if err != nil {
+		t.Fatalf("Start() error: %v", err)
+	}
+
+	// Wait for process to finish
+	select {
+	case <-r.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("process didn't exit in time")
+	}
+
+	// Check log file
+	logPath := logDir + "/main.test-svc.log"
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("reading log file: %v", err)
+	}
+
+	if !strings.Contains(string(data), "hello from test") {
+		t.Errorf("log file should contain output, got: %s", string(data))
+	}
+}
+
+func TestRunnerWorkingDir(t *testing.T) {
+	workDir := t.TempDir()
+	logDir := t.TempDir()
+
+	r := NewRunner(RunnerConfig{
+		ServiceName: "test-svc",
+		Branch:      "main",
+		BranchSlug:  "main",
+		Command:     "pwd",
+		Dir:         workDir,
+		Port:        9999,
+		Env:         map[string]string{},
+		LogDir:      logDir,
+	})
+
+	_, err := r.Start()
+	if err != nil {
+		t.Fatalf("Start() error: %v", err)
+	}
+
+	select {
+	case <-r.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("process didn't exit in time")
+	}
+
+	// Check that pwd output matches workDir
+	logPath := logDir + "/main.test-svc.log"
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("reading log file: %v", err)
+	}
+
+	// Resolve symlinks for macOS
+	resolvedWorkDir, _ := filepath.Abs(workDir)
+	resolvedWorkDir2, _ := filepath.EvalSymlinks(resolvedWorkDir)
+	output := strings.TrimSpace(string(data))
+	resolvedOutput, _ := filepath.EvalSymlinks(output)
+
+	if resolvedOutput != resolvedWorkDir2 {
+		t.Errorf("working dir: got %q, want %q", resolvedOutput, resolvedWorkDir2)
+	}
+}
+
+func TestBuildEnvNullByte(t *testing.T) {
+	runner := &Runner{
+		config: RunnerConfig{
+			ServiceName: "web",
+			Branch:      "main",
+			BranchSlug:  "main",
+			Command:     "echo",
+			Dir:         "/tmp",
+			Port:        3000,
+			Env: map[string]string{
+				"GOOD":           "value",
+				"BAD\x00KEY":     "value",
+				"ALSO_BAD":       "val\x00ue",
+			},
+			AllServicePorts:      map[string]int{},
+			AllServiceProxyPorts: map[string]int{},
+		},
+	}
+
+	env := runner.buildEnv()
+	lookup := make(map[string]string)
+	for _, e := range env {
+		parts := strings.SplitN(e, "=", 2)
+		if len(parts) == 2 {
+			lookup[parts[0]] = parts[1]
+		}
+	}
+
+	if _, ok := lookup["GOOD"]; !ok {
+		t.Error("GOOD env var should be present")
+	}
 }
