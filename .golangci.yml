@@ -3,6 +3,11 @@ version: "2"
 run:
   timeout: 5m
 
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
 linters:
   enable:
     - errcheck
@@ -11,8 +16,6 @@ linters:
     - staticcheck
     - unused
     - gosimple
-    - gofmt
-    - goimports
     - misspell
     - unconvert
     - gocritic
