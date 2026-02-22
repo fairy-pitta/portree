@@ -12,15 +12,23 @@
 
 ---
 
+## デモ
+
+![portree workflow demo](./demo/demo-workflow.gif)
+
+---
+
 ## 特徴
 
 - **マルチサービス** — フロントエンド、バックエンド、任意の数のサービスを worktree ごとに定義
 - **ポート自動割り当て** — ハッシュベース (FNV32) のポート割り当て。worktree 間のポート衝突なし
 - **サブドメインリバースプロキシ** — `branch-name.localhost:<port>` で任意の worktree にアクセス (`/etc/hosts` の編集不要)
+- **HTTPS プロキシ** — 自動生成証明書またはカスタム証明書による HTTPS 対応。Secure Cookie や Service Worker が必要なローカル開発に
 - **環境変数の自動注入** — `$PORT`、`$PT_BRANCH`、`$PT_BACKEND_URL` 等を自動設定
 - **TUI ダッシュボード** — ターミナル上のインタラクティブ UI でサービスの起動・停止・監視
 - **プロセスライフサイクル管理** — グレースフルシャットダウン (SIGTERM → SIGKILL)、ログファイル、古い PID の自動クリーンアップ
 - **worktree ごとのオーバーライド** — ブランチ別にコマンド、ポート、環境変数をカスタマイズ
+- **AI エージェント対応** — `portree ls --json` で URL 情報を含む JSON 出力。エンドポイントの自動発見に対応
 
 ---
 
@@ -28,17 +36,24 @@
 
 ### 1. インストール
 
+![Install demo](./demo/demo-install.gif)
+
 ```bash
-# ソースから
+# Homebrew
+brew install fairy-pitta/tap/portree
+
+# Go install
 go install github.com/fairy-pitta/portree@latest
 
-# またはローカルビルド
+# またはソースからビルド
 git clone https://github.com/fairy-pitta/portree.git
 cd portree
 make build
 ```
 
 ### 2. 初期化
+
+![Init demo](./demo/demo-init.gif)
 
 ```bash
 cd your-project
@@ -80,6 +95,10 @@ portree up --all      # 全 worktree の全サービスを起動
 portree proxy start
 # :3000 → frontend サービス
 # :8000 → backend サービス
+
+# HTTPS で起動する場合
+portree proxy start --https
+# 自動生成された証明書で HTTPS プロキシを起動
 ```
 
 ### 6. ブラウザで開く
@@ -93,20 +112,23 @@ portree open --service backend  # http://main.localhost:8000 を開く
 
 ## コマンド一覧
 
-| コマンド               | 説明                                             |
-| ---------------------- | ------------------------------------------------ |
-| `portree init`         | `.portree.toml` 設定ファイルを作成               |
-| `portree up`           | 現在の worktree のサービスを起動                 |
-| `portree up --all`     | 全 worktree のサービスを起動                     |
-| `portree up --service` | 特定のサービスのみ起動                           |
-| `portree down`         | 現在の worktree のサービスを停止                 |
-| `portree down --all`   | 全 worktree のサービスを停止                     |
-| `portree ls`           | 全 worktree のサービス、ポート、状態、PID を表示 |
-| `portree dash`         | インタラクティブ TUI ダッシュボードを起動        |
-| `portree proxy start`  | リバースプロキシを起動 (フォアグラウンド)        |
-| `portree proxy stop`   | リバースプロキシを停止                           |
-| `portree open`         | 現在の worktree をブラウザで開く                 |
-| `portree version`      | バージョン情報を表示                             |
+| コマンド                        | 説明                                             |
+| ------------------------------- | ------------------------------------------------ |
+| `portree init`                  | `.portree.toml` 設定ファイルを作成               |
+| `portree up`                    | 現在の worktree のサービスを起動                 |
+| `portree up --all`              | 全 worktree のサービスを起動                     |
+| `portree up --service`          | 特定のサービスのみ起動                           |
+| `portree down`                  | 現在の worktree のサービスを停止                 |
+| `portree down --all`            | 全 worktree のサービスを停止                     |
+| `portree ls`                    | 全 worktree のサービス、ポート、状態、PID を表示 |
+| `portree dash`                  | インタラクティブ TUI ダッシュボードを起動        |
+| `portree proxy start`           | リバースプロキシを起動 (フォアグラウンド)        |
+| `portree proxy start --https`   | HTTPS リバースプロキシを起動 (自動証明書)        |
+| `portree proxy stop`            | リバースプロキシを停止                           |
+| `portree trust`                 | CA 証明書をシステム信頼ストアにインストール      |
+| `portree open`                  | 現在の worktree をブラウザで開く                 |
+| `portree doctor`                | 設定とポートの診断チェックを実行                 |
+| `portree version`               | バージョン情報を表示                             |
 
 ---
 
@@ -224,6 +246,8 @@ module.exports = {
 
 ## TUI ダッシュボード
 
+![TUI Dashboard demo](./demo/demo-tui.gif)
+
 `portree dash` で起動:
 
 ```
@@ -292,6 +316,11 @@ portree ls
 # feature/auth    frontend   3117   running   12347
 # feature/auth    backend    8104   running   12348
 
+# JSON 出力 (AI エージェントやスクリプトに最適)
+portree ls --json
+# [{"worktree":"main","service":"frontend","port":3100,"status":"running",
+#   "pid":12345,"url":"http://main.localhost:3000","direct_url":"http://localhost:3100"}, ...]
+
 # プロキシ起動
 portree proxy start
 # アクセス:
@@ -299,6 +328,14 @@ portree proxy start
 #   http://main.localhost:8000          → backend (main)
 #   http://feature-auth.localhost:3000  → frontend (feature/auth)
 #   http://feature-auth.localhost:8000  → backend (feature/auth)
+
+# HTTPS が必要な場合
+portree proxy start --https
+# 自動生成証明書で HTTPS プロキシを起動
+# https://main.localhost:3000 でアクセス
+
+# CA 証明書をシステムに信頼させる (ブラウザ警告を解消)
+portree trust
 
 # ブラウザで開く
 portree open
@@ -311,6 +348,75 @@ portree dash
 portree down --all
 # ✓ 4 services stopped
 ```
+
+---
+
+## シェル補完
+
+portree は bash、zsh、fish、PowerShell のシェル補完をサポートしています。
+
+**bash:**
+```bash
+source <(portree completion bash)
+# 永続化する場合:
+portree completion bash > /etc/bash_completion.d/portree
+```
+
+**zsh:**
+```bash
+portree completion zsh > "${fpath[1]}/_portree"
+# 新しいシェルを開くと有効になります。
+```
+
+**fish:**
+```bash
+portree completion fish | source
+# 永続化する場合:
+portree completion fish > ~/.config/fish/completions/portree.fish
+```
+
+**PowerShell:**
+```powershell
+portree completion powershell | Out-String | Invoke-Expression
+# 永続化する場合:
+portree completion powershell > portree.ps1
+# PowerShell プロファイルに ". portree.ps1" を追加してください。
+```
+
+---
+
+## トラブルシューティング
+
+### サービスが起動しない
+
+- `.portree/logs/<branch-slug>.<service>.log` のログファイルでエラー出力を確認してください。
+- `.portree.toml` の `command` を手動で実行して正しく動作するか確認してください。
+- `dir` で指定したディレクトリが worktree ルートからの相対パスとして存在するか確認してください。
+
+### ポート競合
+
+- `portree doctor` を実行してポート競合を検出してください。
+- ポートが使用中の場合、portree は linear probing で範囲内の次の空きポートを探します。
+- 範囲全体が使い切られた場合は、`.portree.toml` の `port_range` を広げてください。
+
+### 古いプロセス (stale process)
+
+- `portree doctor` を実行して state ファイル内の古い PID を検出してください。
+- `portree down --all` で全サービスを停止してクリーンアップできます。
+- 外部からプロセスが kill された場合、`portree ls` は自動的に `stopped` として表示します。
+
+### プロキシが正しくルーティングしない
+
+- `portree proxy start` でプロキシが起動しているか確認してください。
+- ブラウザが `*.localhost` を解決できるか確認してください。モダンブラウザは RFC 6761 に従い自動解決します。
+- 対象サービスが起動しているか `portree ls` で確認してください。
+- プロキシは `Host` ヘッダーのサブドメインでルーティングするため、`http://<branch-slug>.localhost:<proxy_port>` でアクセスしてください。
+
+### HTTPS 関連
+
+- `portree proxy start --https` で自動生成された証明書は `.portree/certs/` に保存されます。
+- ブラウザの証明書警告を解消するには `portree trust` で CA 証明書をシステムにインストールしてください。
+- カスタム証明書を使う場合は `portree proxy start --cert <path> --key <path>` を指定してください。
 
 ---
 
@@ -354,6 +460,54 @@ portree は linear probing を使用します。ハッシュで決まったポ�
 [worktrees."feature/auth"]
 services.backend.command = "python manage.py runserver --settings=auth 0.0.0.0:$PORT"
 services.backend.env = { DEBUG = "1" }
+```
+
+---
+
+## プロジェクト構造
+
+```
+portree/
+├── main.go                      # エントリーポイント
+├── cmd/                         # CLI コマンド (cobra)
+│   ├── root.go                  # ルートコマンド + リポジトリ/設定検出
+│   ├── init.go                  # portree init
+│   ├── up.go                    # portree up
+│   ├── down.go                  # portree down
+│   ├── ls.go                    # portree ls
+│   ├── dash.go                  # portree dash
+│   ├── proxy.go                 # portree proxy start|stop
+│   ├── trust.go                 # portree trust
+│   ├── open.go                  # portree open
+│   └── version.go               # portree version
+├── internal/
+│   ├── cert/cert.go             # CA + サーバー証明書の自動生成
+│   ├── config/config.go         # .portree.toml の読み込みとバリデーション
+│   ├── git/
+│   │   ├── repo.go              # リポジトリルート / common dir 検出
+│   │   └── worktree.go          # worktree 一覧とブランチスラッグ
+│   ├── state/store.go           # flock 付き JSON 状態永続化
+│   ├── port/
+│   │   ├── allocator.go         # FNV32 ハッシュベースのポート割り当て
+│   │   └── registry.go          # ポート割り当て管理
+│   ├── process/
+│   │   ├── runner.go            # 単一プロセスのライフサイクル
+│   │   └── manager.go           # マルチサービスオーケストレーション
+│   ├── proxy/
+│   │   ├── resolver.go          # スラッグ + ポート → バックエンド解決
+│   │   └── server.go            # HTTP/HTTPS リバースプロキシ
+│   ├── browser/open.go          # OS 対応のブラウザ起動
+│   └── tui/                     # Bubble Tea TUI ダッシュボード
+│       ├── app.go               # トップレベルモデル
+│       ├── dashboard.go         # テーブルレンダリング
+│       ├── keys.go              # キーバインド
+│       ├── messages.go          # カスタムメッセージ
+│       └── styles.go            # Lip Gloss スタイル
+├── Makefile
+├── .goreleaser.yaml
+└── .github/workflows/
+    ├── ci.yaml
+    └── release.yaml
 ```
 
 ---
