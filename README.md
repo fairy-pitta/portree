@@ -23,10 +23,12 @@
 - **Multi-service** — Define frontend, backend, and any number of services per worktree
 - **Automatic port allocation** — Hash-based port assignment (FNV32) with per-service ranges; no port conflicts across worktrees
 - **Subdomain reverse proxy** — Access any worktree via `branch-name.localhost:<port>` (no `/etc/hosts` editing required)
+- **HTTPS proxy** — Auto-generated certificates or custom cert/key for local HTTPS (Secure Cookies, Service Workers, etc.)
 - **Environment variable injection** — `$PORT`, `$PT_BRANCH`, `$PT_BACKEND_URL`, etc. are injected automatically
 - **TUI dashboard** — Interactive terminal UI to start, stop, restart, and monitor all services
 - **Process lifecycle** — Graceful shutdown (SIGTERM → SIGKILL), log files, stale PID cleanup
 - **Per-worktree overrides** — Customize commands, ports, and env vars per branch
+- **AI agent friendly** — `portree ls --json` includes `url` and `direct_url` fields for automatic endpoint discovery
 
 ---
 
@@ -93,6 +95,10 @@ portree up --all      # Start all services for ALL worktrees
 portree proxy start
 # :3000 → frontend services
 # :8000 → backend services
+
+# Or with HTTPS
+portree proxy start --https
+# Auto-generated certificates for local HTTPS
 ```
 
 ### 6. Open in browser
@@ -106,20 +112,23 @@ portree open --service backend  # Opens http://main.localhost:8000
 
 ## Commands
 
-| Command                | Description                                           |
-| ---------------------- | ----------------------------------------------------- |
-| `portree init`         | Create a `.portree.toml` configuration file           |
-| `portree up`           | Start services for the current worktree               |
-| `portree up --all`     | Start services for all worktrees                      |
-| `portree up --service` | Start a specific service only                         |
-| `portree down`         | Stop services for the current worktree                |
-| `portree down --all`   | Stop services for all worktrees                       |
-| `portree ls`           | List all worktrees, services, ports, status, and PIDs |
-| `portree dash`         | Open the interactive TUI dashboard                    |
-| `portree proxy start`  | Start the reverse proxy (foreground)                  |
-| `portree proxy stop`   | Stop the reverse proxy                                |
-| `portree open`         | Open the current worktree in a browser                |
-| `portree version`      | Print version information                             |
+| Command                      | Description                                           |
+| ---------------------------- | ----------------------------------------------------- |
+| `portree init`               | Create a `.portree.toml` configuration file           |
+| `portree up`                 | Start services for the current worktree               |
+| `portree up --all`           | Start services for all worktrees                      |
+| `portree up --service`       | Start a specific service only                         |
+| `portree down`               | Stop services for the current worktree                |
+| `portree down --all`         | Stop services for all worktrees                       |
+| `portree ls`                 | List all worktrees, services, ports, status, and PIDs |
+| `portree dash`               | Open the interactive TUI dashboard                    |
+| `portree proxy start`        | Start the reverse proxy (foreground)                  |
+| `portree proxy start --https`| Start the reverse proxy with HTTPS (auto-generated certs) |
+| `portree proxy stop`         | Stop the reverse proxy                                |
+| `portree trust`              | Install the CA certificate into the system trust store|
+| `portree open`               | Open the current worktree in a browser                |
+| `portree doctor`             | Run diagnostic checks on config and ports             |
+| `portree version`            | Print version information                             |
 
 ---
 
@@ -307,6 +316,11 @@ portree ls
 # feature/auth    frontend   3117   running   12347
 # feature/auth    backend    8104   running   12348
 
+# JSON output (great for AI agents and scripts)
+portree ls --json
+# [{"worktree":"main","service":"frontend","port":3100,"status":"running",
+#   "pid":12345,"url":"http://main.localhost:3000","direct_url":"http://localhost:3100"}, ...]
+
 # Start the proxy
 portree proxy start
 # Access:
@@ -314,6 +328,14 @@ portree proxy start
 #   http://main.localhost:8000          → backend (main)
 #   http://feature-auth.localhost:3000  → frontend (feature/auth)
 #   http://feature-auth.localhost:8000  → backend (feature/auth)
+
+# Or start with HTTPS (for Secure Cookies, Service Workers, etc.)
+portree proxy start --https
+# Auto-generates certificates in .portree/certs/
+# Access via https://main.localhost:3000
+
+# Trust the CA to remove browser warnings
+portree trust
 
 # Open in browser
 portree open
@@ -390,6 +412,13 @@ portree completion powershell > portree.ps1
 - Check that the target service is actually running with `portree ls`.
 - The proxy routes based on the `Host` header subdomain, so access via `http://<branch-slug>.localhost:<proxy_port>`.
 
+### HTTPS issues
+
+- Auto-generated certificates are stored in `.portree/certs/` when using `portree proxy start --https`.
+- Run `portree trust` to install the CA certificate into your system trust store and eliminate browser warnings.
+- To use custom certificates, pass `portree proxy start --cert <path> --key <path>` (both flags are required together).
+- To verify with curl: `curl --cacert .portree/certs/ca.crt https://main.localhost:3000`.
+
 ---
 
 ## Platform Support
@@ -449,9 +478,11 @@ portree/
 │   ├── ls.go                    # portree ls
 │   ├── dash.go                  # portree dash
 │   ├── proxy.go                 # portree proxy start|stop
+│   ├── trust.go                 # portree trust
 │   ├── open.go                  # portree open
 │   └── version.go               # portree version
 ├── internal/
+│   ├── cert/cert.go             # CA + server certificate auto-generation
 │   ├── config/config.go         # .portree.toml loading & validation
 │   ├── git/
 │   │   ├── repo.go              # Repo root / common dir detection
@@ -465,7 +496,7 @@ portree/
 │   │   └── manager.go           # Multi-service orchestration
 │   ├── proxy/
 │   │   ├── resolver.go          # Slug + port → backend resolution
-│   │   └── server.go            # HTTP reverse proxy
+│   │   └── server.go            # HTTP/HTTPS reverse proxy
 │   ├── browser/open.go          # OS-aware browser opening
 │   └── tui/                     # Bubble Tea TUI dashboard
 │       ├── app.go               # Top-level model
