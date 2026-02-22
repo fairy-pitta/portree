@@ -60,6 +60,19 @@ brews:
     test: |
       system "#{bin}/portree", "version"
 
+nfpms:
+  - id: portree
+    package_name: portree
+    vendor: fairy-pitta
+    homepage: https://github.com/fairy-pitta/portree
+    maintainer: fairy-pitta <fairy-pitta@users.noreply.github.com>
+    description: Git Worktree Server Manager
+    license: MIT
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin
+
 release:
   github:
     owner: fairy-pitta
