@@ -51,6 +51,7 @@ brews:
   - repository:
       owner: fairy-pitta
       name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     directory: Formula
     homepage: https://github.com/fairy-pitta/portree
     description: Git Worktree Server Manager
