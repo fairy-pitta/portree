@@ -87,6 +87,21 @@ func (m *Manager) StartServices(tree *git.Worktree, serviceFilter string) []Serv
 		proxyPorts[svcName] = svc.ProxyPort
 	}
 
+	// Determine proxy scheme from state.
+	proxyScheme := "http"
+	if err := m.store.WithLock(func() error {
+		st, e := m.store.Load()
+		if e != nil {
+			return e
+		}
+		if st.Proxy.HTTPS {
+			proxyScheme = "https"
+		}
+		return nil
+	}); err != nil {
+		logging.Warn("failed to load proxy state for scheme: %v", err)
+	}
+
 	slug := tree.Slug()
 
 	for _, svcName := range services {
@@ -138,6 +153,7 @@ func (m *Manager) StartServices(tree *git.Worktree, serviceFilter string) []Serv
 			LogDir:               filepath.Join(m.store.Dir(), "logs"),
 			AllServicePorts:      portMap,
 			AllServiceProxyPorts: proxyPorts,
+			ProxyScheme:          proxyScheme,
 		})
 
 		pid, err := runner.Start()

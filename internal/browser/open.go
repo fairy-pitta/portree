@@ -7,8 +7,8 @@ import (
 )
 
 // BuildURL constructs the proxy URL for a service.
-func BuildURL(slug string, proxyPort int) string {
-	return fmt.Sprintf("http://%s.localhost:%d", slug, proxyPort)
+func BuildURL(scheme, slug string, proxyPort int) string {
+	return fmt.Sprintf("%s://%s.localhost:%d", scheme, slug, proxyPort)
 }
 
 // Open opens the given URL in the default browser.

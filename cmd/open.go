@@ -3,9 +3,12 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/fairy-pitta/portree/internal/browser"
 	"github.com/fairy-pitta/portree/internal/git"
+	"github.com/fairy-pitta/portree/internal/logging"
+	"github.com/fairy-pitta/portree/internal/state"
 	"github.com/spf13/cobra"
 )
 
@@ -46,7 +49,25 @@ Use --service to specify a different service.`,
 			return fmt.Errorf("unknown service %q", svcName)
 		}
 
-		url := browser.BuildURL(tree.Slug(), svc.ProxyPort)
+		// Determine scheme from proxy state.
+		scheme := "http"
+		stateDir := filepath.Join(repoRoot, ".portree")
+		if store, err := state.NewFileStore(stateDir); err == nil {
+			if err := store.WithLock(func() error {
+				st, e := store.Load()
+				if e != nil {
+					return e
+				}
+				if st.Proxy.HTTPS {
+					scheme = "https"
+				}
+				return nil
+			}); err != nil {
+				logging.Warn("failed to load proxy state: %v", err)
+			}
+		}
+
+		url := browser.BuildURL(scheme, tree.Slug(), svc.ProxyPort)
 		fmt.Printf("Opening %s ...\n", url)
 		return browser.Open(url)
 	},

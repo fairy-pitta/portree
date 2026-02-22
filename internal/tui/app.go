@@ -331,7 +331,22 @@ func (m *Model) openSelected() tea.Msg {
 		return ActionResultMsg{Message: "Unknown service", IsError: true}
 	}
 
-	url := browser.BuildURL(row.Slug, svc.ProxyPort)
+	// Determine scheme from proxy state.
+	scheme := "http"
+	if err := m.store.WithLock(func() error {
+		st, e := m.store.Load()
+		if e != nil {
+			return e
+		}
+		if st.Proxy.HTTPS {
+			scheme = "https"
+		}
+		return nil
+	}); err != nil {
+		logging.Warn("failed to load proxy state for scheme: %v", err)
+	}
+
+	url := browser.BuildURL(scheme, row.Slug, svc.ProxyPort)
 	if err := browser.Open(url); err != nil {
 		return ActionResultMsg{Message: fmt.Sprintf("Error opening browser: %v", err), IsError: true}
 	}

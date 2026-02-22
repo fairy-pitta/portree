@@ -13,6 +13,14 @@ import (
 	"github.com/spf13/pflag"
 )
 
+// testCfg is a config for use in unit tests of buildLsEntries.
+var testCfg = &config.Config{
+	Services: map[string]config.ServiceConfig{
+		"api": {ProxyPort: 8000},
+		"web": {ProxyPort: 3000},
+	},
+}
+
 const testConfig = `[services.web]
 command = "echo hello"
 port_range = { min = 19100, max = 19199 }
@@ -88,6 +96,11 @@ func resetRootCmd() {
 	upAll = false
 	upService = ""
 	openService = ""
+
+	// Reset proxy start flags.
+	proxyStartCmd.Flags().VisitAll(func(f *pflag.Flag) {
+		f.Changed = false
+	})
 
 	// Reset logging level and persistent flag "changed" state.
 	logging.SetLevel(logging.LevelNormal)
@@ -303,7 +316,7 @@ func TestBuildLsEntries(t *testing.T) {
 		PortAssignments: map[string]int{},
 	}
 
-	entries := buildLsEntries(trees, serviceNames, st)
+	entries := buildLsEntries(trees, serviceNames, st, testCfg, nil)
 
 	// bare worktree should be skipped: 2 trees × 2 services = 4
 	if len(entries) != 4 {
@@ -335,7 +348,7 @@ func TestBuildLsEntries_DetachedHead(t *testing.T) {
 		PortAssignments: map[string]int{},
 	}
 
-	entries := buildLsEntries(trees, serviceNames, st)
+	entries := buildLsEntries(trees, serviceNames, st, testCfg, nil)
 	if len(entries) != 1 {
 		t.Fatalf("got %d entries, want 1", len(entries))
 	}
@@ -358,7 +371,7 @@ func TestBuildLsEntries_StaleProcess(t *testing.T) {
 		PortAssignments: map[string]int{},
 	}
 
-	entries := buildLsEntries(trees, serviceNames, st)
+	entries := buildLsEntries(trees, serviceNames, st, testCfg, nil)
 	if len(entries) != 1 {
 		t.Fatalf("got %d entries, want 1", len(entries))
 	}

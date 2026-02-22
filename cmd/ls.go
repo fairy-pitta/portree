@@ -8,6 +8,7 @@ import (
 	"sort"
 	"text/tabwriter"
 
+	"github.com/fairy-pitta/portree/internal/config"
 	"github.com/fairy-pitta/portree/internal/git"
 	"github.com/fairy-pitta/portree/internal/logging"
 	"github.com/fairy-pitta/portree/internal/process"
@@ -16,11 +17,13 @@ import (
 )
 
 type lsEntry struct {
-	Worktree string `json:"worktree"`
-	Service  string `json:"service"`
-	Port     int    `json:"port"`
-	Status   string `json:"status"`
-	PID      int    `json:"pid"`
+	Worktree  string `json:"worktree"`
+	Service   string `json:"service"`
+	Port      int    `json:"port"`
+	Status    string `json:"status"`
+	PID       int    `json:"pid"`
+	URL       string `json:"url,omitempty"`
+	DirectURL string `json:"direct_url,omitempty"`
 }
 
 var lsCmd = &cobra.Command{
@@ -72,7 +75,7 @@ Use --json to output the result as a JSON array for scripting and automation.`,
 		}
 		sort.Strings(serviceNames)
 
-		entries := buildLsEntries(trees, serviceNames, st)
+		entries := buildLsEntries(trees, serviceNames, st, cfg, &st.Proxy)
 
 		// Detect orphaned branches: in state but not in worktree list.
 		activeBranches := make(map[string]bool, len(trees))
@@ -102,7 +105,14 @@ Use --json to output the result as a JSON array for scripting and automation.`,
 	},
 }
 
-func buildLsEntries(trees []git.Worktree, serviceNames []string, st *state.State) []lsEntry {
+func buildLsEntries(trees []git.Worktree, serviceNames []string, st *state.State, c *config.Config, proxy *state.ProxyState) []lsEntry {
+	// Determine proxy scheme and whether proxy is available.
+	proxyRunning := proxy != nil && proxy.Status == state.StatusRunning && proxy.PID > 0
+	scheme := "http"
+	if proxy != nil && proxy.HTTPS {
+		scheme = "https"
+	}
+
 	entries := make([]lsEntry, 0)
 	for _, tree := range trees {
 		if tree.IsBare {
@@ -112,6 +122,8 @@ func buildLsEntries(trees []git.Worktree, serviceNames []string, st *state.State
 		if branch == "" {
 			branch = "(detached)"
 		}
+
+		slug := tree.Slug()
 
 		for _, svcName := range serviceNames {
 			e := lsEntry{
@@ -132,6 +144,16 @@ func buildLsEntries(trees []git.Worktree, serviceNames []string, st *state.State
 				default:
 					e.Status = ss.Status
 				}
+			}
+
+			// Build URLs.
+			if proxyRunning && c != nil {
+				if svc, ok := c.Services[svcName]; ok {
+					e.URL = fmt.Sprintf("%s://%s.localhost:%d", scheme, slug, svc.ProxyPort)
+				}
+			}
+			if e.Port > 0 {
+				e.DirectURL = fmt.Sprintf("http://localhost:%d", e.Port)
 			}
 
 			entries = append(entries, e)

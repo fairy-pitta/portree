@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -22,14 +23,24 @@ const shutdownTimeout = 5 * time.Second
 // ProxyServer manages multiple HTTP reverse proxy listeners, one per proxy_port.
 type ProxyServer struct {
 	resolver  *Resolver
+	tlsConfig *tls.Config // nil = plain HTTP
 	servers   []*http.Server
 	listeners []net.Listener
 	mu        sync.Mutex
 }
 
 // NewProxyServer creates a new ProxyServer.
-func NewProxyServer(resolver *Resolver) *ProxyServer {
-	return &ProxyServer{resolver: resolver}
+// Pass a non-nil tlsConfig to enable HTTPS.
+func NewProxyServer(resolver *Resolver, tlsConfig *tls.Config) *ProxyServer {
+	return &ProxyServer{resolver: resolver, tlsConfig: tlsConfig}
+}
+
+// Scheme returns "https" if TLS is configured, otherwise "http".
+func (p *ProxyServer) Scheme() string {
+	if p.tlsConfig != nil {
+		return "https"
+	}
+	return "http"
 }
 
 // Start launches proxy listeners for the given proxy ports.
@@ -60,6 +71,10 @@ func (p *ProxyServer) Start(proxyPorts map[string]int) error {
 			// Clean up already started servers.
 			_ = p.stopLocked()
 			return fmt.Errorf("proxy: cannot listen on %s: %w", srv.Addr, err)
+		}
+
+		if p.tlsConfig != nil {
+			ln = tls.NewListener(ln, p.tlsConfig)
 		}
 
 		p.servers = append(p.servers, srv)
@@ -125,7 +140,7 @@ func (p *ProxyServer) handler(proxyPort int) http.Handler {
 		slug := ParseSlugFromHost(r.Host)
 		if slug == "" {
 			http.Error(w, "portree: missing subdomain in Host header.\n"+
-				"Use http://<branch-slug>.localhost:"+strconv.Itoa(proxyPort), http.StatusBadRequest)
+				"Use "+p.Scheme()+"://<branch-slug>.localhost:"+strconv.Itoa(proxyPort), http.StatusBadRequest)
 			return
 		}
 

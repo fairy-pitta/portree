@@ -32,6 +32,7 @@ type ServiceState struct {
 type ProxyState struct {
 	PID    int    `json:"pid"`
 	Status string `json:"status"`
+	HTTPS  bool   `json:"https,omitempty"`
 }
 
 // State represents the full persisted state.

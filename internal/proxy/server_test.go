@@ -42,7 +42,7 @@ func setupProxyTest(t *testing.T) (*ProxyServer, *state.FileStore) {
 	}
 
 	resolver := NewResolver(cfg, store)
-	return NewProxyServer(resolver), store
+	return NewProxyServer(resolver, nil), store
 }
 
 func TestHandlerMissingSubdomain(t *testing.T) {
@@ -202,7 +202,7 @@ func TestHandlerResolvesToBackend(t *testing.T) {
 	}
 
 	resolver := NewResolver(cfg, store)
-	proxy := NewProxyServer(resolver)
+	proxy := NewProxyServer(resolver, nil)
 	handler := proxy.handler(3000)
 
 	req := httptest.NewRequest("GET", "http://feature-auth.localhost:3000/", nil)

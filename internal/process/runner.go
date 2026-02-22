@@ -29,6 +29,8 @@ type RunnerConfig struct {
 	AllServicePorts map[string]int
 	// AllServiceProxyPorts maps service name -> proxy port for URL env vars.
 	AllServiceProxyPorts map[string]int
+	// ProxyScheme is "http" or "https" for PT_*_URL env vars.
+	ProxyScheme string
 }
 
 // Runner manages a single child process.
@@ -232,9 +234,13 @@ func (r *Runner) buildEnv() []string {
 		upper := strings.ToUpper(svcName)
 		env = append(env, fmt.Sprintf("PT_%s_PORT=%d", upper, svcPort))
 	}
+	scheme := r.config.ProxyScheme
+	if scheme == "" {
+		scheme = "http"
+	}
 	for svcName, proxyPort := range r.config.AllServiceProxyPorts {
 		upper := strings.ToUpper(svcName)
-		env = append(env, fmt.Sprintf("PT_%s_URL=http://%s.localhost:%d", upper, r.config.BranchSlug, proxyPort))
+		env = append(env, fmt.Sprintf("PT_%s_URL=%s://%s.localhost:%d", upper, scheme, r.config.BranchSlug, proxyPort))
 	}
 
 	return env
