@@ -144,8 +144,11 @@ func writePEM(path, blockType string, data []byte, perm os.FileMode) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	return pem.Encode(f, &pem.Block{Type: blockType, Bytes: data})
+	if err := pem.Encode(f, &pem.Block{Type: blockType, Bytes: data}); err != nil {
+		_ = f.Close()
+		return err
+	}
+	return f.Close()
 }
 
 func writeKeyPEM(path string, key *ecdsa.PrivateKey) error {
