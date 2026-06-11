@@ -17,6 +17,7 @@ var (
 	upAll     bool
 	upService string
 	upNoProxy bool
+	upSkip    []string
 )
 
 var upCmd = &cobra.Command{
@@ -33,6 +34,11 @@ var upCmd = &cobra.Command{
 		if upService != "" {
 			if _, ok := cfg.Services[upService]; !ok {
 				return unknownServiceError(cfg, upService)
+			}
+		}
+		for _, skip := range upSkip {
+			if _, ok := cfg.Services[skip]; !ok {
+				return fmt.Errorf("unknown service %q in --skip", skip)
 			}
 		}
 
@@ -74,7 +80,7 @@ var upCmd = &cobra.Command{
 				continue
 			}
 			logging.Verbose("starting services for worktree %s (%s)", tree.Branch, tree.Path)
-			results := mgr.StartServices(&tree, upService)
+			results := mgr.StartServices(&tree, upService, upSkip...)
 			for _, r := range results {
 				switch {
 				case r.Err != nil:
@@ -143,5 +149,6 @@ func init() {
 	upCmd.Flags().BoolVar(&upAll, "all", false, "Start services for all worktrees")
 	upCmd.Flags().StringVar(&upService, "service", "", "Start only a specific service")
 	upCmd.Flags().BoolVar(&upNoProxy, "no-proxy", false, "Do not start the reverse proxy")
+	upCmd.Flags().StringSliceVar(&upSkip, "skip", nil, "Allocate ports but do not start these services")
 	rootCmd.AddCommand(upCmd)
 }

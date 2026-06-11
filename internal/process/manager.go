@@ -87,10 +87,16 @@ func startupGraceWindow() time.Duration {
 
 // StartServices starts services for the given worktree.
 // If serviceFilter is non-empty, only that service is started.
-func (m *Manager) StartServices(tree *git.Worktree, serviceFilter string) []ServiceResult {
+// Services named in skip get ports allocated (so cross-service env vars like
+// PT_<SVC>_PORT stay correct for the services that do run) but are not started.
+func (m *Manager) StartServices(tree *git.Worktree, serviceFilter string, skip ...string) []ServiceResult {
 	var results []ServiceResult
 
 	services := m.targetServices(serviceFilter)
+	skipped := make(map[string]bool, len(skip))
+	for _, s := range skip {
+		skipped[s] = true
+	}
 
 	// First allocate all ports so cross-service env vars are available.
 	portMap := map[string]int{}
@@ -133,6 +139,10 @@ func (m *Manager) StartServices(tree *git.Worktree, serviceFilter string) []Serv
 		p, ok := portMap[svcName]
 		if !ok {
 			continue // port allocation failed, already reported
+		}
+
+		if skipped[svcName] {
+			continue
 		}
 
 		// Clean up stale processes.
