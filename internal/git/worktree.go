@@ -3,7 +3,6 @@ package git
 import (
 	"bufio"
 	"fmt"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -54,8 +53,7 @@ func DetectSlugCollisions(trees []Worktree) map[string][]string {
 
 // ListWorktrees returns all worktrees for the repo containing dir.
 func ListWorktrees(dir string) ([]Worktree, error) {
-	cmd := exec.Command("git", "worktree", "list", "--porcelain")
-	cmd.Dir = dir
+	cmd := gitCmd(dir, "worktree", "list", "--porcelain")
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("git worktree list: %w", err)

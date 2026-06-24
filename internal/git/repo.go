@@ -2,7 +2,6 @@ package git
 
 import (
 	"fmt"
-	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -10,8 +9,7 @@ import (
 // FindRepoRoot returns the root directory of the git repository
 // that contains the given directory (or the current directory).
 func FindRepoRoot(dir string) (string, error) {
-	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
-	cmd.Dir = dir
+	cmd := gitCmd(dir, "rev-parse", "--show-toplevel")
 	out, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("not a git repository (or any parent): %w", err)
@@ -22,8 +20,7 @@ func FindRepoRoot(dir string) (string, error) {
 // CommonDir returns the git common directory (the .git dir of the main worktree).
 // For worktrees, this points to the main repo's .git directory.
 func CommonDir(dir string) (string, error) {
-	cmd := exec.Command("git", "rev-parse", "--git-common-dir")
-	cmd.Dir = dir
+	cmd := gitCmd(dir, "rev-parse", "--git-common-dir")
 	out, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to get git common dir: %w", err)

@@ -98,27 +98,31 @@ func TestDetectSlugCollisions(t *testing.T) {
 	})
 }
 
+// runGitIn runs a git command in dir with a deterministic author/committer
+// identity. It reuses sanitizedGitEnv so the command targets dir's repo even
+// when the suite runs inside a git hook that exports GIT_DIR/GIT_INDEX_FILE.
+func runGitIn(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	cmd.Env = append(SanitizedEnv(),
+		"GIT_AUTHOR_NAME=test",
+		"GIT_AUTHOR_EMAIL=test@test.com",
+		"GIT_COMMITTER_NAME=test",
+		"GIT_COMMITTER_EMAIL=test@test.com",
+	)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v: %v\n%s", args, err, out)
+	}
+}
+
 // initTestRepo creates a temporary git repo with an initial commit.
 func initTestRepo(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	runGit := func(args ...string) {
-		t.Helper()
-		cmd := exec.Command("git", args...)
-		cmd.Dir = dir
-		cmd.Env = append(os.Environ(),
-			"GIT_AUTHOR_NAME=test",
-			"GIT_AUTHOR_EMAIL=test@test.com",
-			"GIT_COMMITTER_NAME=test",
-			"GIT_COMMITTER_EMAIL=test@test.com",
-		)
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("git %v: %v\n%s", args, err, out)
-		}
-	}
-	runGit("init")
-	runGit("commit", "--allow-empty", "-m", "init")
+	runGitIn(t, dir, "init")
+	runGitIn(t, dir, "commit", "--allow-empty", "-m", "init")
 	return dir
 }
 
@@ -223,24 +227,8 @@ func TestListWorktrees_WithAdditionalWorktree(t *testing.T) {
 	dir := initTestRepo(t)
 
 	// Create a branch and worktree
-	runGit := func(args ...string) {
-		t.Helper()
-		cmd := exec.Command("git", args...)
-		cmd.Dir = dir
-		cmd.Env = append(os.Environ(),
-			"GIT_AUTHOR_NAME=test",
-			"GIT_AUTHOR_EMAIL=test@test.com",
-			"GIT_COMMITTER_NAME=test",
-			"GIT_COMMITTER_EMAIL=test@test.com",
-		)
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("git %v: %v\n%s", args, err, out)
-		}
-	}
-
 	wtDir := filepath.Join(t.TempDir(), "feature-auth")
-	runGit("worktree", "add", "-b", "feature/auth", wtDir)
+	runGitIn(t, dir, "worktree", "add", "-b", "feature/auth", wtDir)
 
 	trees, err := ListWorktrees(dir)
 	if err != nil {
@@ -313,24 +301,8 @@ func TestCurrentWorktree_NotGitRepo(t *testing.T) {
 func TestCommonDir_FromWorktree(t *testing.T) {
 	dir := initTestRepo(t)
 
-	runGit := func(args ...string) {
-		t.Helper()
-		cmd := exec.Command("git", args...)
-		cmd.Dir = dir
-		cmd.Env = append(os.Environ(),
-			"GIT_AUTHOR_NAME=test",
-			"GIT_AUTHOR_EMAIL=test@test.com",
-			"GIT_COMMITTER_NAME=test",
-			"GIT_COMMITTER_EMAIL=test@test.com",
-		)
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("git %v: %v\n%s", args, err, out)
-		}
-	}
-
 	wtDir := filepath.Join(t.TempDir(), "wt-test")
-	runGit("worktree", "add", "-b", "test-branch", wtDir)
+	runGitIn(t, dir, "worktree", "add", "-b", "test-branch", wtDir)
 
 	// CommonDir from the additional worktree should point to main's .git
 	common, err := CommonDir(wtDir)
@@ -348,24 +320,8 @@ func TestCommonDir_FromWorktree(t *testing.T) {
 func TestMainWorktreeRoot_FromWorktree(t *testing.T) {
 	dir := initTestRepo(t)
 
-	runGit := func(args ...string) {
-		t.Helper()
-		cmd := exec.Command("git", args...)
-		cmd.Dir = dir
-		cmd.Env = append(os.Environ(),
-			"GIT_AUTHOR_NAME=test",
-			"GIT_AUTHOR_EMAIL=test@test.com",
-			"GIT_COMMITTER_NAME=test",
-			"GIT_COMMITTER_EMAIL=test@test.com",
-		)
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("git %v: %v\n%s", args, err, out)
-		}
-	}
-
 	wtDir := filepath.Join(t.TempDir(), "wt-test2")
-	runGit("worktree", "add", "-b", "test-branch2", wtDir)
+	runGitIn(t, dir, "worktree", "add", "-b", "test-branch2", wtDir)
 
 	root, err := MainWorktreeRoot(wtDir)
 	if err != nil {

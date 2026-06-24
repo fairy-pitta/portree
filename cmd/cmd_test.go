@@ -41,7 +41,9 @@ func setupGitRepo(t *testing.T) string {
 		t.Helper()
 		cmd := exec.Command(args[0], args[1:]...)
 		cmd.Dir = dir
-		cmd.Env = append(os.Environ(),
+		// Use a sanitized env so the temp repo is created at dir, not at an
+		// inherited GIT_DIR (e.g. when the suite runs inside a git hook).
+		cmd.Env = append(git.SanitizedEnv(),
 			"GIT_AUTHOR_NAME=test",
 			"GIT_AUTHOR_EMAIL=test@test.com",
 			"GIT_COMMITTER_NAME=test",
