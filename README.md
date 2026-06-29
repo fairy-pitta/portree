@@ -155,6 +155,28 @@ port_range = { min = 3100, max = 3199 }
 proxy_port = 3000
 ```
 
+> [!IMPORTANT]
+> **Make your command bind the allocated `$PORT`.** portree injects the
+> allocated port as the `PORT` environment variable, but your service must
+> actually listen on it — otherwise it will start on its own default port and
+> portree will report it as `running` on a port nothing is listening on.
+>
+> The reliable approach is to have your service read `$PORT` itself:
+>
+> - **Vite**: set `server.port` in `vite.config.ts`, e.g.
+>   `server: { port: Number(process.env.PORT) || 5173 }`, or run
+>   `command = "npx vite --port $PORT"`.
+> - **Next.js**: `command = "next dev -p $PORT"`.
+> - Most frameworks honor `PORT` out of the box (Rails, Django via
+>   `0.0.0.0:$PORT`, etc.).
+>
+> **pnpm caveat:** `command = "pnpm run dev -- --port $PORT"` does **not** work.
+> pnpm inserts its own `--` separator, producing `vite ... -- --port 3193`, and
+> Vite treats everything after `--` as positional args — so `--port` is silently
+> ignored and Vite falls back to `5173`. Use `npx vite --port $PORT`, or read
+> `PORT` inside `vite.config.ts` as shown above. (See
+> [#9](https://github.com/fairy-pitta/portree/issues/9).)
+
 ### `[env]`
 
 Global environment variables injected into all services.
