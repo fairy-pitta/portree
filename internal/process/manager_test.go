@@ -1,6 +1,7 @@
 package process
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -84,6 +85,7 @@ func TestMutexHelpers(t *testing.T) {
 
 func newTestManager(t *testing.T) (*Manager, *state.FileStore) {
 	t.Helper()
+	t.Setenv("PORTREE_STARTUP_GRACE", "300ms")
 	dir := t.TempDir()
 	store, err := state.NewFileStore(dir)
 	if err != nil {
@@ -278,5 +280,62 @@ func TestManagerStopWithoutStart(t *testing.T) {
 	}
 	if results[0].Err != nil {
 		t.Errorf("StopServices error: %v", results[0].Err)
+	}
+}
+
+func TestManagerStartReportsEarlyExit(t *testing.T) {
+	mgr, _ := newTestManager(t)
+	mgr.cfg.Services["web"] = config.ServiceConfig{
+		Command:   "echo boom-stdout; exit 1",
+		PortRange: config.PortRange{Min: 19100, Max: 19199},
+	}
+
+	tree := &git.Worktree{Path: t.TempDir(), Branch: "main"}
+	results := mgr.StartServices(tree, "web")
+	if len(results) != 1 {
+		t.Fatalf("StartServices returned %d results, want 1", len(results))
+	}
+	r := results[0]
+	if r.Err == nil {
+		t.Fatal("expected error for a service that exits immediately, got success")
+	}
+	if !strings.Contains(r.Err.Error(), "boom-stdout") {
+		t.Errorf("error should include the log tail, got: %v", r.Err)
+	}
+
+	// State must record the service as stopped, not running.
+	st, err := mgr.StatusAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ss := state.GetServiceState(st, "main", "web")
+	if ss == nil || ss.Status != state.StatusStopped {
+		t.Errorf("service state = %+v, want stopped", ss)
+	}
+}
+
+func TestManagerStartSkipsAlreadyRunning(t *testing.T) {
+	mgr, _ := newTestManager(t)
+	tree := &git.Worktree{Path: t.TempDir(), Branch: "main"}
+
+	first := mgr.StartServices(tree, "web")
+	if len(first) != 1 || first[0].Err != nil {
+		t.Fatalf("first start failed: %+v", first)
+	}
+	defer mgr.StopServices(tree, "web")
+
+	second := mgr.StartServices(tree, "web")
+	if len(second) != 1 {
+		t.Fatalf("second StartServices returned %d results, want 1", len(second))
+	}
+	r := second[0]
+	if r.Err != nil {
+		t.Fatalf("second start should be a no-op, got error: %v", r.Err)
+	}
+	if !r.AlreadyRunning {
+		t.Error("expected AlreadyRunning = true on second start")
+	}
+	if r.PID != first[0].PID {
+		t.Errorf("PID changed across no-op restart: %d -> %d", first[0].PID, r.PID)
 	}
 }

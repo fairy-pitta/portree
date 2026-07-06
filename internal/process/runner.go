@@ -2,7 +2,6 @@ package process
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/fairy-pitta/portree/internal/logging"
+	"github.com/fairy-pitta/portree/internal/port"
 )
 
 const stopTimeout = 10 * time.Second
@@ -198,14 +198,9 @@ func IsProcessRunning(pid int) bool {
 }
 
 // IsPortAvailable checks if a TCP port is available for binding.
-func IsPortAvailable(port int) bool {
-	addr := fmt.Sprintf("127.0.0.1:%d", port)
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		return false
-	}
-	_ = ln.Close()
-	return true
+// See port.IsFree for the probe semantics.
+func IsPortAvailable(p int) bool {
+	return port.IsFree(p)
 }
 
 // buildEnv constructs the full environment for the child process.

@@ -1,6 +1,9 @@
 package port
 
 import (
+	"fmt"
+	"net"
+	"os"
 	"testing"
 
 	"github.com/fairy-pitta/portree/internal/config"
@@ -134,4 +137,75 @@ func TestRegistryRelease(t *testing.T) {
 			t.Errorf("re-assigned port = %d, not in range", port)
 		}
 	})
+}
+
+func TestRegistryStaleAssignmentReallocated(t *testing.T) {
+	reg := newTestRegistry(t)
+
+	first, err := reg.AssignPort("feature", "web")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Simulate a foreign process (e.g. another worktree's stack) grabbing the
+	// assigned port while our service is down. Note no service state is
+	// recorded for "feature", so the assignment is not "ours and running".
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", first))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = ln.Close() }()
+
+	second, err := reg.AssignPort("feature", "web")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second == first {
+		t.Errorf("AssignPort reused port %d despite a foreign listener on it", first)
+	}
+}
+
+func TestRegistryOwnRunningServiceKeepsPort(t *testing.T) {
+	dir := t.TempDir()
+	store, err := state.NewFileStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{
+		Services: map[string]config.ServiceConfig{
+			"web": {PortRange: config.PortRange{Min: 3100, Max: 3199}},
+		},
+	}
+	reg := NewRegistry(store, cfg)
+
+	first, err := reg.AssignPort("feature", "web")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Our own service is running on the port (this test process stands in for
+	// it: live PID, port held by a listener).
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", first))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = ln.Close() }()
+	if err := store.WithLock(func() error {
+		st, e := store.Load()
+		if e != nil {
+			return e
+		}
+		state.SetServiceState(st, "feature", "web", state.RunningServiceState(first, os.Getpid()))
+		return store.Save(st)
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	second, err := reg.AssignPort("feature", "web")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second != first {
+		t.Errorf("AssignPort moved a running service from port %d to %d", first, second)
+	}
 }

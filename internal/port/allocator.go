@@ -3,8 +3,6 @@ package port
 import (
 	"fmt"
 	"hash/fnv"
-	"net"
-	"strconv"
 
 	"github.com/fairy-pitta/portree/internal/config"
 )
@@ -27,7 +25,7 @@ func Allocate(branch, service string, svc config.ServiceConfig, fixedPort int, u
 
 	for i := 0; i < rangeSize; i++ {
 		candidate := pr.Min + (base-pr.Min+i)%rangeSize
-		if !used[candidate] && isPortFree(candidate) {
+		if !used[candidate] && IsFree(candidate) {
 			return candidate, nil
 		}
 	}
@@ -41,21 +39,4 @@ func hashPort(branch, service string, minPort, maxPort int) int {
 	h.Write([]byte(branch + ":" + service))
 	rangeSize := maxPort - minPort + 1
 	return minPort + int(h.Sum32())%rangeSize
-}
-
-// isPortFree checks if a TCP port is available by attempting to listen on it.
-// Note: there is an inherent TOCTOU (time-of-check-time-of-use) race between
-// this check and the moment the child process actually binds the port. This is
-// mitigated by (1) the file-level lock in state.FileStore serializing port
-// allocation across concurrent portree invocations, and (2) a clear error
-// message when the service fails to bind its assigned port.
-// We check on 127.0.0.1 to match the proxy bind address, though services may
-// listen on 0.0.0.0. In practice the file lock prevents concurrent conflicts.
-func isPortFree(port int) bool {
-	ln, err := net.Listen("tcp", "127.0.0.1:"+strconv.Itoa(port))
-	if err != nil {
-		return false
-	}
-	_ = ln.Close()
-	return true
 }

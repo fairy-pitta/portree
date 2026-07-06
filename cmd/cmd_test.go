@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/fairy-pitta/portree/internal/config"
@@ -22,7 +23,7 @@ var testCfg = &config.Config{
 }
 
 const testConfig = `[services.web]
-command = "echo hello"
+command = "sleep 30"
 port_range = { min = 19100, max = 19199 }
 proxy_port = 19000
 `
@@ -164,7 +165,7 @@ func TestUpDownCommand(t *testing.T) {
 	setupTestRepo(t)
 	resetRootCmd()
 
-	// Start services (echo hello exits immediately).
+	t.Setenv("PORTREE_STARTUP_GRACE", "200ms")
 	rootCmd.SetArgs([]string{"up"})
 	if err := rootCmd.Execute(); err != nil {
 		t.Fatalf("up command: %v", err)
@@ -209,9 +210,36 @@ func TestUpServiceFilter(t *testing.T) {
 	setupTestRepo(t)
 	resetRootCmd()
 
+	t.Setenv("PORTREE_STARTUP_GRACE", "200ms")
 	rootCmd.SetArgs([]string{"up", "--service", "web"})
 	if err := rootCmd.Execute(); err != nil {
 		t.Fatalf("up --service web: %v", err)
+	}
+}
+
+// A service that exits within the startup grace window must make `up` return a
+// non-zero error at the CLI layer, not silently report success.
+func TestUpReportsStartFailure(t *testing.T) {
+	dir := setupGitRepo(t)
+	const crashConfig = `[services.web]
+command = "exit 1"
+port_range = { min = 19100, max = 19199 }
+proxy_port = 19000
+`
+	if err := os.WriteFile(filepath.Join(dir, config.FileName), []byte(crashConfig), 0644); err != nil {
+		t.Fatal(err)
+	}
+	resetRootCmd()
+
+	t.Setenv("PORTREE_STARTUP_GRACE", "500ms")
+	rootCmd.SetArgs([]string{"up"})
+	err := rootCmd.Execute()
+	if err == nil {
+		t.Fatal("up should return an error when a service fails to start")
+	}
+	// Also asserts the singular noun for a single failure.
+	if !strings.Contains(err.Error(), "1 service failed to start") {
+		t.Errorf("error = %q, want it to contain %q", err.Error(), "1 service failed to start")
 	}
 }
 

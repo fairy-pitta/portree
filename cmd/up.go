@@ -66,6 +66,8 @@ var upCmd = &cobra.Command{
 		}
 
 		totalStarted := 0
+		alreadyRunning := 0
+		startFailures := 0
 		for _, tree := range trees {
 			if tree.IsBare {
 				continue
@@ -73,25 +75,45 @@ var upCmd = &cobra.Command{
 			logging.Verbose("starting services for worktree %s (%s)", tree.Branch, tree.Path)
 			results := mgr.StartServices(&tree, upService)
 			for _, r := range results {
-				if r.Err != nil {
+				switch {
+				case r.Err != nil:
 					logging.Error("starting %s/%s: %v", r.Branch, r.Service, r.Err)
-				} else {
+					startFailures++
+				case r.AlreadyRunning:
+					logging.Info("%s already running (port %d, pid %d) for %s", r.Service, r.Port, r.PID, r.Branch)
+					alreadyRunning++
+				default:
 					logging.Info("Starting %s (port %d) for %s ...", r.Service, r.Port, r.Branch)
 					totalStarted++
 				}
 			}
 		}
 
+		svcNoun := func(n int) string {
+			if n == 1 {
+				return "service"
+			}
+			return "services"
+		}
+
 		if totalStarted > 0 {
-			noun := "services"
-			if totalStarted == 1 {
-				noun = "service"
-			}
 			if upAll {
-				logging.Info("✓ %d %s started", totalStarted, noun)
+				logging.Info("✓ %d %s started", totalStarted, svcNoun(totalStarted))
 			} else {
-				logging.Info("✓ %d %s started for %s", totalStarted, noun, trees[0].Branch)
+				logging.Info("✓ %d %s started for %s", totalStarted, svcNoun(totalStarted), trees[0].Branch)
 			}
+		}
+
+		if alreadyRunning > 0 {
+			if upAll {
+				logging.Info("%d %s already running", alreadyRunning, svcNoun(alreadyRunning))
+			} else {
+				logging.Info("%d %s already running for %s", alreadyRunning, svcNoun(alreadyRunning), trees[0].Branch)
+			}
+		}
+
+		if startFailures > 0 {
+			return fmt.Errorf("%d %s failed to start", startFailures, svcNoun(startFailures))
 		}
 
 		return nil
