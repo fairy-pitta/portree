@@ -103,6 +103,15 @@ func (m *Manager) StartServices(tree *git.Worktree, serviceFilter string, skip .
 	for _, svcName := range services {
 		p, err := m.registry.AssignPort(tree.Branch, svcName)
 		if err != nil {
+			// A skipped service is not being started, so a failed allocation is
+			// not fatal: it only means its PT_<SVC>_PORT env var is unavailable
+			// to the services that do run (harmless unless one references it).
+			// Don't fail `up` over a port we were never going to use — e.g. a
+			// worker range already exhausted by sibling worktrees.
+			if skipped[svcName] {
+				logging.Warn("skipping port allocation for %s/%s: %v", tree.Branch, svcName, err)
+				continue
+			}
 			results = append(results, ServiceResult{
 				Branch: tree.Branch, Service: svcName, Err: err,
 			})

@@ -418,3 +418,42 @@ func TestManagerStartSkipsService(t *testing.T) {
 		t.Errorf("skipped service port = %d, want allocated in [19200, 19299]", port)
 	}
 }
+
+// A skipped service whose port range is exhausted (e.g. by sibling worktrees)
+// must not fail `up` — it isn't being started, so the missing port is harmless.
+func TestManagerStartSkipsServiceWhenRangeExhausted(t *testing.T) {
+	mgr, store := newTestManager(t)
+	// "worker" has a single-port range, and that port is already taken by a
+	// different branch, so allocating one for our branch is impossible.
+	mgr.cfg.Services["worker"] = config.ServiceConfig{
+		Command:   "sleep 60",
+		PortRange: config.PortRange{Min: 19300, Max: 19300},
+	}
+	if err := store.WithLock(func() error {
+		st, err := store.Load()
+		if err != nil {
+			return err
+		}
+		state.SetPortAssignment(st, "other-branch", "worker", 19300)
+		return store.Save(st)
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	tree := &git.Worktree{Path: t.TempDir(), Branch: "main"}
+	results := mgr.StartServices(tree, "", "worker")
+	defer mgr.StopServices(tree, "")
+
+	for _, r := range results {
+		if r.Service == "worker" {
+			t.Errorf("exhausted skipped service should produce no result, got %+v", r)
+		}
+		if r.Err != nil {
+			t.Errorf("skipping an unallocatable service must not fail up: %v", r.Err)
+		}
+	}
+	// The runnable service must still have come up.
+	if _, err := mgr.registry.GetPort("main", "web"); err != nil {
+		t.Errorf("non-skipped web service should have a port: %v", err)
+	}
+}
