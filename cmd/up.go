@@ -51,6 +51,40 @@ var upCmd = &cobra.Command{
 		registry := port.NewRegistry(store, cfg)
 		mgr := process.NewManager(cfg, store, registry)
 
+		// Reclaim ports and state held by worktrees that no longer exist before
+		// allocating. Port assignments are never released on `down` or when a
+		// worktree is removed, so without this a small port range fills up
+		// permanently: once every slot has been claimed by some branch, no new
+		// worktree can allocate one even though those branches are long gone.
+		// Guarded on a non-empty active set so a failed `git worktree list`
+		// can't wipe live state.
+		if allTrees, lerr := git.ListWorktrees(cwd); lerr == nil {
+			active := make(map[string]bool, len(allTrees))
+			for _, t := range allTrees {
+				if !t.IsBare {
+					active[t.Branch] = true
+				}
+			}
+			if len(active) > 0 {
+				if werr := store.WithLock(func() error {
+					st, e := store.Load()
+					if e != nil {
+						return e
+					}
+					pruned := state.PruneToActiveBranches(st, active)
+					if len(pruned) == 0 {
+						return nil
+					}
+					logging.Info("reclaimed ports for %d removed worktree(s): %v", len(pruned), pruned)
+					return store.Save(st)
+				}); werr != nil {
+					logging.Warn("failed to reclaim orphaned port assignments: %v", werr)
+				}
+			}
+		} else {
+			logging.Warn("skipping orphan reclaim (could not list worktrees): %v", lerr)
+		}
+
 		var trees []git.Worktree
 		if upAll {
 			trees, err = git.ListWorktrees(cwd)
