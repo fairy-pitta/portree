@@ -80,3 +80,8 @@ release:
     name: portree
   draft: false
   prerelease: auto
+  # release-please creates the GitHub Release (with notes) when its Release PR
+  # merges; goreleaser then only uploads the built artifacts, leaving the
+  # release-please-generated notes untouched. On a manual tag push (no existing
+  # release) goreleaser creates the release as before.
+  mode: keep-existing
