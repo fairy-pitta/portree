@@ -52,23 +52,30 @@ Use --https to enable HTTPS with auto-generated certificates, or
 			}
 
 			if certFile == "" {
-				// Auto-generate certificates.
+				// Auto-generate a dev CA, then mint a leaf certificate per TLS
+				// handshake keyed on the SNI host. This makes any
+				// <branch-slug>.localhost verify without a "*.localhost"
+				// wildcard, which strict TLS clients reject.
 				certDir := filepath.Join(stateDir, "certs")
 				paths, err := cert.EnsureCerts(certDir)
 				if err != nil {
 					return fmt.Errorf("generating certificates: %w", err)
 				}
-				certFile = paths.ServerCert
-				keyFile = paths.ServerKey
-				logging.Verbose("using auto-generated certificates in %s", certDir)
-			}
-
-			keypair, err := tls.LoadX509KeyPair(certFile, keyFile)
-			if err != nil {
-				return fmt.Errorf("loading TLS certificate: %w", err)
-			}
-			tlsConfig = &tls.Config{
-				Certificates: []tls.Certificate{keypair},
+				getCert, err := cert.NewSNIGetCertificate(paths)
+				if err != nil {
+					return fmt.Errorf("initializing certificate minting: %w", err)
+				}
+				tlsConfig = &tls.Config{GetCertificate: getCert}
+				logging.Verbose("using auto-generated CA in %s (minting per-host certs)", certDir)
+			} else {
+				// Bring-your-own certificate and key.
+				keypair, err := tls.LoadX509KeyPair(certFile, keyFile)
+				if err != nil {
+					return fmt.Errorf("loading TLS certificate: %w", err)
+				}
+				tlsConfig = &tls.Config{
+					Certificates: []tls.Certificate{keypair},
+				}
 			}
 		}
 
