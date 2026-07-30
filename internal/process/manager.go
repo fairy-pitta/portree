@@ -2,10 +2,13 @@ package process
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/fairy-pitta/portree/internal/config"
 	"github.com/fairy-pitta/portree/internal/git"
@@ -59,6 +62,24 @@ type ServiceResult struct {
 	Port    int
 	PID     int
 	Err     error
+	// AlreadyRunning is true when the service was found healthy and running,
+	// so no new process was started.
+	AlreadyRunning bool
+}
+
+// defaultStartupGrace is how long a freshly started service is watched for an
+// early exit (e.g. EADDRINUSE) before it is reported as started.
+const defaultStartupGrace = 3 * time.Second
+
+// startupGraceWindow returns the startup watch duration, overridable via
+// PORTREE_STARTUP_GRACE (a Go duration string, e.g. "500ms").
+func startupGraceWindow() time.Duration {
+	if v := os.Getenv("PORTREE_STARTUP_GRACE"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			return d
+		}
+	}
+	return defaultStartupGrace
 }
 
 // StartServices starts services for the given worktree.
@@ -104,6 +125,7 @@ func (m *Manager) StartServices(tree *git.Worktree, serviceFilter string) []Serv
 
 	slug := tree.Slug()
 
+	var watches []startWatch
 	for _, svcName := range services {
 		p, ok := portMap[svcName]
 		if !ok {
@@ -112,6 +134,15 @@ func (m *Manager) StartServices(tree *git.Worktree, serviceFilter string) []Serv
 
 		// Clean up stale processes.
 		m.cleanStale(tree.Branch, svcName)
+
+		// If our own service is already running on this port, leave it alone.
+		if pid, running := m.runningServicePID(tree.Branch, svcName, p); running {
+			results = append(results, ServiceResult{
+				Branch: tree.Branch, Service: svcName, Port: p, PID: pid,
+				AlreadyRunning: true,
+			})
+			continue
+		}
 
 		// Check if port is available. If not, the port might be held by an orphan process.
 		if !IsPortAvailable(p) {
@@ -176,10 +207,110 @@ func (m *Manager) StartServices(tree *git.Worktree, serviceFilter string) []Serv
 			}); err != nil {
 				logging.Warn("failed to save state after starting %s/%s: %v", tree.Branch, svcName, err)
 			}
+
+			watches = append(watches, startWatch{
+				resultIdx: len(results) - 1,
+				runner:    runner,
+				logPath:   filepath.Join(m.store.Dir(), "logs", fmt.Sprintf("%s.%s.log", slug, svcName)),
+			})
 		}
 	}
 
+	m.watchStartups(tree.Branch, watches, results)
+
 	return results
+}
+
+// startWatch tracks a freshly started service during the startup grace window.
+type startWatch struct {
+	resultIdx int
+	runner    *Runner
+	logPath   string
+}
+
+// watchStartups waits up to startupGraceWindow for each freshly started
+// service and converts an early exit into a loud failure. Without this, a
+// service that crashes right after spawn (e.g. its port is taken by a process
+// the bind probe could not see) is reported as started.
+func (m *Manager) watchStartups(branch string, watches []startWatch, results []ServiceResult) {
+	var wg sync.WaitGroup
+	for _, w := range watches {
+		wg.Add(1)
+		go func(w startWatch) {
+			defer wg.Done()
+			grace := startupGraceWindow()
+			select {
+			case <-w.runner.Done():
+				r := &results[w.resultIdx]
+				r.Err = fmt.Errorf("exited within %s of starting; last log lines:\n%s",
+					grace, tailFile(w.logPath, 10))
+				key := branch + ":" + r.Service
+				m.deleteRunner(key)
+				if err := m.store.WithLock(func() error {
+					st, e := m.store.Load()
+					if e != nil {
+						return e
+					}
+					state.SetServiceState(st, branch, r.Service, state.StoppedServiceState(r.Port))
+					return m.store.Save(st)
+				}); err != nil {
+					logging.Warn("failed to save state after %s/%s died at startup: %v", branch, r.Service, err)
+				}
+			case <-time.After(grace):
+			}
+		}(w)
+	}
+	wg.Wait()
+}
+
+// tailFile returns up to n trailing lines of the file at path.
+func tailFile(path string, n int) string {
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Sprintf("(could not read log %s: %v)", path, err)
+	}
+	defer func() { _ = f.Close() }()
+
+	const tailBytes = 8 * 1024
+	info, err := f.Stat()
+	if err != nil {
+		return fmt.Sprintf("(could not stat log %s: %v)", path, err)
+	}
+	offset := info.Size() - tailBytes
+	if offset < 0 {
+		offset = 0
+	}
+	buf := make([]byte, info.Size()-offset)
+	if _, err := f.ReadAt(buf, offset); err != nil && err != io.EOF {
+		return fmt.Sprintf("(could not read log %s: %v)", path, err)
+	}
+	lines := strings.Split(strings.TrimRight(string(buf), "\n"), "\n")
+	if len(lines) > n {
+		lines = lines[len(lines)-n:]
+	}
+	return strings.Join(lines, "\n")
+}
+
+// runningServicePID reports whether the branch's service is recorded as
+// running on the given port with a live PID.
+func (m *Manager) runningServicePID(branch, service string, port int) (int, bool) {
+	var pid int
+	var running bool
+	if err := m.store.WithLock(func() error {
+		st, e := m.store.Load()
+		if e != nil {
+			return e
+		}
+		ss := state.GetServiceState(st, branch, service)
+		if ss != nil && ss.Status == state.StatusRunning && ss.Port == port && ss.PID > 0 && IsProcessRunning(ss.PID) {
+			pid = ss.PID
+			running = true
+		}
+		return nil
+	}); err != nil {
+		logging.Warn("failed to check running state for %s/%s: %v", branch, service, err)
+	}
+	return pid, running
 }
 
 // StopServices stops services for the given worktree.

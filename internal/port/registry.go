@@ -1,6 +1,9 @@
 package port
 
 import (
+	"os"
+	"syscall"
+
 	"github.com/fairy-pitta/portree/internal/config"
 	"github.com/fairy-pitta/portree/internal/state"
 )
@@ -26,11 +29,18 @@ func (r *Registry) AssignPort(branch, service string) (int, error) {
 			return err
 		}
 
-		// Check for existing assignment.
+		// Check for existing assignment. Reuse it only if it is still usable:
+		// either our own service is currently running on it, or the port is
+		// actually free. A stale assignment can collide with a listener that
+		// appeared since (e.g. another repo's process), so blind reuse would
+		// hand out a dead-on-arrival port.
 		existing := state.GetPortAssignment(st, branch, service)
 		if existing > 0 {
-			port = existing
-			return nil
+			if ownsRunningService(st, branch, service, existing) || IsFree(existing) {
+				port = existing
+				return nil
+			}
+			delete(st.PortAssignments, state.PortKey(branch, service))
 		}
 
 		// Check for fixed port override.
@@ -79,4 +89,26 @@ func (r *Registry) Release(branch, service string) error {
 		delete(st.PortAssignments, state.PortKey(branch, service))
 		return r.store.Save(st)
 	})
+}
+
+// ownsRunningService reports whether the branch's own service is currently
+// running (live PID) on the given port, in which case the assignment is
+// legitimately "in use by us" and must be reused as-is.
+func ownsRunningService(st *state.State, branch, service string, port int) bool {
+	ss := state.GetServiceState(st, branch, service)
+	return ss != nil &&
+		ss.Status == state.StatusRunning &&
+		ss.Port == port &&
+		ss.PID > 0 &&
+		isProcessRunning(ss.PID)
+}
+
+// isProcessRunning checks PID liveness. Duplicated from the process package
+// because importing it here would create an import cycle (process -> port).
+func isProcessRunning(pid int) bool {
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return false
+	}
+	return proc.Signal(syscall.Signal(0)) == nil
 }
