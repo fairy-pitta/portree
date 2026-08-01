@@ -89,16 +89,26 @@ portree up            # 現在の worktree の全サービスを起動
 portree up --all      # 全 worktree の全サービスを起動
 ```
 
-### 5. プロキシ起動
+`up` はリバースプロキシもバックグラウンドで起動し、URL を表示します。
+1コマンドで「実際に応答する URL」が手に入ります。
+
+```
+✓ 2 services started for main
+✓ Proxy running (http, pid 41233)
+  http://main.localhost:3000  → frontend
+  http://main.localhost:8000  → backend
+```
+
+サービスだけ起動したい場合は `--no-proxy` を付けてください。
+
+### 5. プロキシの個別操作 (任意)
 
 ```bash
-portree proxy start
-# :3000 → frontend サービス
-# :8000 → backend サービス
-
-# HTTPS で起動する場合
-portree proxy start --https
-# 自動生成された証明書で HTTPS プロキシを起動
+portree proxy status            # 稼働状況・ポート・スキームを表示
+portree proxy start --detach    # バックグラウンド起動 (応答を確認してから返る)
+portree proxy start             # フォアグラウンド起動 (Ctrl+C で停止)
+portree proxy start --https     # 自動生成証明書で HTTPS 起動
+portree proxy stop
 ```
 
 ### 6. ブラウザで開く
@@ -108,6 +118,9 @@ portree open                    # http://main.localhost:3000 を開く
 portree open --service backend  # http://main.localhost:8000 を開く
 ```
 
+プロキシやサービスが停止している場合、`open` はブラウザを開かずにエラーを返します。
+接続エラー画面に飛ばされることはありません。
+
 ---
 
 ## コマンド一覧
@@ -115,15 +128,18 @@ portree open --service backend  # http://main.localhost:8000 を開く
 | コマンド                        | 説明                                             |
 | ------------------------------- | ------------------------------------------------ |
 | `portree init`                  | `.portree.toml` 設定ファイルを作成               |
-| `portree up`                    | 現在の worktree のサービスを起動                 |
+| `portree up`                    | 現在の worktree のサービスとプロキシを起動       |
 | `portree up --all`              | 全 worktree のサービスを起動                     |
 | `portree up --service`          | 特定のサービスのみ起動                           |
+| `portree up --no-proxy`         | プロキシを起動せずサービスのみ起動               |
 | `portree down`                  | 現在の worktree のサービスを停止                 |
 | `portree down --all`            | 全 worktree のサービスを停止                     |
 | `portree ls`                    | 全 worktree のサービス、ポート、状態、PID を表示 |
 | `portree dash`                  | インタラクティブ TUI ダッシュボードを起動        |
 | `portree proxy start`           | リバースプロキシを起動 (フォアグラウンド)        |
+| `portree proxy start --detach`  | リバースプロキシをバックグラウンド起動           |
 | `portree proxy start --https`   | HTTPS リバースプロキシを起動 (自動証明書)        |
+| `portree proxy status`          | プロキシの稼働状況を表示                         |
 | `portree proxy stop`            | リバースプロキシを停止                           |
 | `portree trust`                 | CA 証明書をシステム信頼ストアにインストール      |
 | `portree open`                  | 現在の worktree をブラウザで開く                 |

@@ -98,6 +98,7 @@ func resetRootCmd() {
 	downPrune = false
 	upAll = false
 	upService = ""
+	upNoProxy = false
 	openService = ""
 	logsFollow = false
 	logsTail = 50
@@ -176,6 +177,50 @@ func TestUpDownCommand(t *testing.T) {
 	rootCmd.SetArgs([]string{"down"})
 	if err := rootCmd.Execute(); err != nil {
 		t.Fatalf("down command: %v", err)
+	}
+}
+
+// runDown stops whatever a test started, so leftover processes do not leak
+// into later tests.
+func runDown(t *testing.T) {
+	t.Helper()
+	resetRootCmd()
+	rootCmd.SetArgs([]string{"down"})
+	_ = rootCmd.Execute()
+}
+
+// TestUpStartsProxy covers the point of the change: "up" alone leaves the user
+// with URLs that answer, instead of requiring a second command in another
+// terminal.
+func TestUpStartsProxy(t *testing.T) {
+	setupTestRepo(t)
+	resetRootCmd()
+	testSpawns.reset()
+	t.Cleanup(func() { runDown(t) })
+
+	rootCmd.SetArgs([]string{"up"})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("up command: %v", err)
+	}
+
+	if got := testSpawns.count(); got != 1 {
+		t.Errorf("proxy spawned %d times, want 1", got)
+	}
+}
+
+func TestUpNoProxy(t *testing.T) {
+	setupTestRepo(t)
+	resetRootCmd()
+	testSpawns.reset()
+	t.Cleanup(func() { runDown(t) })
+
+	rootCmd.SetArgs([]string{"up", "--no-proxy"})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("up --no-proxy command: %v", err)
+	}
+
+	if got := testSpawns.count(); got != 0 {
+		t.Errorf("proxy spawned %d times with --no-proxy, want 0", got)
 	}
 }
 

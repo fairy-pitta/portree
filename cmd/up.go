@@ -16,6 +16,7 @@ import (
 var (
 	upAll     bool
 	upService string
+	upNoProxy bool
 )
 
 var upCmd = &cobra.Command{
@@ -116,6 +117,24 @@ var upCmd = &cobra.Command{
 			return fmt.Errorf("%d %s failed to start", startFailures, svcNoun(startFailures))
 		}
 
+		// Bring the proxy up so the URLs printed below actually answer. A
+		// failure here does not fail the command: the services did start and
+		// remain reachable on their direct ports.
+		if !upNoProxy {
+			status, perr := ensureProxyRunning(stateRoot, cfg, nil)
+			if perr != nil {
+				logging.Warn("could not start the proxy: %v", perr)
+				logging.Warn("services are reachable on their direct ports; see 'portree ls'")
+				return nil
+			}
+			if status.Running {
+				logging.Info("✓ Proxy running (%s, pid %d)", status.Scheme, status.PID)
+				for _, line := range serviceURLs(trees, cfg, status.Scheme, upService) {
+					logging.Info("  %s", line)
+				}
+			}
+		}
+
 		return nil
 	},
 }
@@ -123,5 +142,6 @@ var upCmd = &cobra.Command{
 func init() {
 	upCmd.Flags().BoolVar(&upAll, "all", false, "Start services for all worktrees")
 	upCmd.Flags().StringVar(&upService, "service", "", "Start only a specific service")
+	upCmd.Flags().BoolVar(&upNoProxy, "no-proxy", false, "Do not start the reverse proxy")
 	rootCmd.AddCommand(upCmd)
 }

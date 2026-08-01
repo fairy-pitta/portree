@@ -89,16 +89,26 @@ portree up            # Start all services for the current worktree
 portree up --all      # Start all services for ALL worktrees
 ```
 
-### 5. Start the proxy
+`up` also starts the reverse proxy in the background and prints the URLs, so a
+single command leaves you with addresses that answer:
+
+```
+✓ 2 services started for main
+✓ Proxy running (http, pid 41233)
+  http://main.localhost:3000  → frontend
+  http://main.localhost:8000  → backend
+```
+
+Pass `--no-proxy` to start services only.
+
+### 5. Manage the proxy directly (optional)
 
 ```bash
-portree proxy start
-# :3000 → frontend services
-# :8000 → backend services
-
-# Or with HTTPS
-portree proxy start --https
-# Auto-generated certificates for local HTTPS
+portree proxy status            # Is it running, on which ports, under which scheme
+portree proxy start --detach    # Background, waits until it is actually serving
+portree proxy start             # Foreground, Ctrl+C to stop
+portree proxy start --https     # HTTPS with auto-generated certificates
+portree proxy stop
 ```
 
 ### 6. Open in browser
@@ -108,6 +118,9 @@ portree open                    # Opens http://main.localhost:3000
 portree open --service backend  # Opens http://main.localhost:8000
 ```
 
+`open` refuses to launch a browser when the proxy or the service is not
+running, rather than leaving you on a connection error page.
+
 ---
 
 ## Commands
@@ -115,15 +128,18 @@ portree open --service backend  # Opens http://main.localhost:8000
 | Command                      | Description                                           |
 | ---------------------------- | ----------------------------------------------------- |
 | `portree init`               | Create a `.portree.toml` configuration file           |
-| `portree up`                 | Start services for the current worktree               |
+| `portree up`                 | Start services for the current worktree, plus the proxy |
 | `portree up --all`           | Start services for all worktrees                      |
 | `portree up --service`       | Start a specific service only                         |
+| `portree up --no-proxy`      | Start services without starting the proxy             |
 | `portree down`               | Stop services for the current worktree                |
 | `portree down --all`         | Stop services for all worktrees                       |
 | `portree ls`                 | List all worktrees, services, ports, status, and PIDs |
 | `portree dash`               | Open the interactive TUI dashboard                    |
 | `portree proxy start`        | Start the reverse proxy (foreground)                  |
+| `portree proxy start --detach`| Start the reverse proxy in the background            |
 | `portree proxy start --https`| Start the reverse proxy with HTTPS (auto-generated certs) |
+| `portree proxy status`       | Report whether the proxy is running, and where        |
 | `portree proxy stop`         | Stop the reverse proxy                                |
 | `portree trust`              | Install the CA certificate into the system trust store|
 | `portree open`               | Open the current worktree in a browser                |
