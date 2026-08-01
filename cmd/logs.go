@@ -77,8 +77,26 @@ Use --follow/-f to keep streaming new output until Ctrl-C.`,
 			return nil
 		}
 
+		// A service that has not written anything yet leaves an empty log file,
+		// and tailing it prints nothing at all — indistinguishable from the
+		// command having failed.
+		if !logsFollow && allLogsEmpty(targets) {
+			logging.Info("no output yet for %s (log files exist but are empty)", tree.Branch)
+			return nil
+		}
+
 		return streamLogs(targets)
 	},
+}
+
+// allLogsEmpty reports whether every target log file is still empty.
+func allLogsEmpty(targets []logTarget) bool {
+	for _, t := range targets {
+		if info, err := os.Stat(t.path); err == nil && info.Size() > 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // logTarget is a single service's log file to stream.

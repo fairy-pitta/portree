@@ -271,12 +271,31 @@ func clearProxyState(stateRoot string) {
 	})
 }
 
-// printProxyReady reports a serving proxy and the ports it answers on.
-func printProxyReady(status proxyStatus) {
+// printProxyReady reports a serving proxy. Concrete per-worktree URLs are far
+// more useful than the generic pattern when the point is to open several of
+// them, so they are preferred whenever the worktrees can be listed.
+func printProxyReady(status proxyStatus, urls []string) {
 	fmt.Printf("Proxy: running (%s, pid %d)\n", status.Scheme, status.PID)
+
+	if len(urls) > 0 {
+		for _, line := range urls {
+			fmt.Printf("  %s\n", line)
+		}
+		return
+	}
 	for _, p := range status.Ports {
 		fmt.Printf("  %s://<branch-slug>.localhost:%d\n", status.Scheme, p)
 	}
+}
+
+// reachableURLs lists the proxy URLs for every worktree of the repo containing
+// cwd, or nil when the worktrees cannot be listed.
+func reachableURLs(cwd string, c *config.Config, scheme string) []string {
+	trees, err := git.ListWorktrees(cwd)
+	if err != nil {
+		return nil
+	}
+	return serviceURLs(trees, c, scheme, "")
 }
 
 // proxyFlagArgs rebuilds the TLS-related flags so a detached child starts with

@@ -67,6 +67,30 @@ port_range = { min = 19200, max = 19299 }
 proxy_port = 19001
 `
 
+// TestAllLogsEmpty distinguishes "started but silent" from "command did
+// nothing". Tailing an empty file prints nothing, which reads as a failure.
+func TestAllLogsEmpty(t *testing.T) {
+	dir := t.TempDir()
+	empty := filepath.Join(dir, "empty.log")
+	written := filepath.Join(dir, "written.log")
+	if err := os.WriteFile(empty, nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(written, []byte("listening\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	if !allLogsEmpty([]logTarget{{service: "a", path: empty}}) {
+		t.Error("allLogsEmpty() = false for a single empty log")
+	}
+	if allLogsEmpty([]logTarget{{service: "a", path: empty}, {service: "b", path: written}}) {
+		t.Error("allLogsEmpty() = true although one log has content")
+	}
+	if !allLogsEmpty([]logTarget{{service: "a", path: filepath.Join(dir, "absent.log")}}) {
+		t.Error("allLogsEmpty() = false for a log file that does not exist")
+	}
+}
+
 func TestLogsSingleServiceNoPrefix(t *testing.T) {
 	dir := setupTestRepo(t) // single service: "web"
 	writeLog(t, dir, "web", "hello from web\n")

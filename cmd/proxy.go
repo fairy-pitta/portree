@@ -57,7 +57,8 @@ Use --https to enable HTTPS with auto-generated certificates, or
 			if err != nil {
 				return err
 			}
-			printProxyReady(status)
+			cwd, _ := os.Getwd()
+			printProxyReady(status, reachableURLs(cwd, cfg, status.Scheme))
 			return nil
 		}
 
@@ -247,7 +248,8 @@ cleared, so the reported status reflects reality rather than the state file.`,
 			return nil
 		}
 
-		printProxyReady(status)
+		cwd, _ := os.Getwd()
+		printProxyReady(status, reachableURLs(cwd, cfg, status.Scheme))
 		return nil
 	},
 }
