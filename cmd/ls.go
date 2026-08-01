@@ -17,13 +17,17 @@ import (
 )
 
 type lsEntry struct {
-	Worktree  string `json:"worktree"`
-	Service   string `json:"service"`
-	Port      int    `json:"port"`
-	Status    string `json:"status"`
-	PID       int    `json:"pid"`
-	URL       string `json:"url,omitempty"`
-	DirectURL string `json:"direct_url,omitempty"`
+	Worktree string `json:"worktree"`
+	Service  string `json:"service"`
+	Port     int    `json:"port"`
+	Status   string `json:"status"`
+	PID      int    `json:"pid"`
+	// URL is the proxy URL for this service. It is always populated, since it
+	// follows from the config alone; ProxyRunning reports whether anything is
+	// currently listening on it.
+	URL          string `json:"url,omitempty"`
+	DirectURL    string `json:"direct_url,omitempty"`
+	ProxyRunning bool   `json:"proxy_running"`
 }
 
 var lsCmd = &cobra.Command{
@@ -106,8 +110,10 @@ Use --json to output the result as a JSON array for scripting and automation.`,
 }
 
 func buildLsEntries(trees []git.Worktree, serviceNames []string, st *state.State, c *config.Config, proxy *state.ProxyState) []lsEntry {
-	// Determine proxy scheme and whether proxy is available.
-	proxyRunning := proxy != nil && proxy.Status == state.StatusRunning && proxy.PID > 0
+	// Determine proxy scheme and whether the proxy is actually serving. A PID
+	// left behind by a crashed proxy must not read as running.
+	proxyRunning := proxy != nil && proxy.Status == state.StatusRunning &&
+		proxy.PID > 0 && process.IsProcessRunning(proxy.PID)
 	scheme := "http"
 	if proxy != nil && proxy.HTTPS {
 		scheme = "https"
@@ -146,8 +152,10 @@ func buildLsEntries(trees []git.Worktree, serviceNames []string, st *state.State
 				}
 			}
 
-			// Build URLs.
-			if proxyRunning && c != nil {
+			// Build URLs. The proxy URL is derivable from the config, so emit it
+			// whether or not the proxy is up and let ProxyRunning carry that fact.
+			e.ProxyRunning = proxyRunning
+			if c != nil {
 				if svc, ok := c.Services[svcName]; ok {
 					e.URL = fmt.Sprintf("%s://%s.localhost:%d", scheme, slug, svc.ProxyPort)
 				}

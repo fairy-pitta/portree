@@ -341,8 +341,11 @@ portree ls
 
 # JSON 出力 (AI エージェントやスクリプトに最適)
 portree ls --json
-# [{"worktree":"main","service":"frontend","port":3100,"status":"running",
-#   "pid":12345,"url":"http://main.localhost:3000","direct_url":"http://localhost:3100"}, ...]
+# [{"worktree":"main","service":"frontend","port":3100,"status":"running","pid":12345,
+#   "url":"http://main.localhost:3000","direct_url":"http://localhost:3100",
+#   "proxy_running":true}, ...]
+# "url" は設定上のプロキシURLを常に返す。"proxy_running" が
+# 実際にそのURLで待ち受けているかを示す。
 
 # プロキシ起動
 portree proxy start

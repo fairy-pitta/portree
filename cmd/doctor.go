@@ -2,15 +2,14 @@ package cmd
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
-	"strconv"
 
 	"github.com/fairy-pitta/portree/internal/config"
 	"github.com/fairy-pitta/portree/internal/git"
+	"github.com/fairy-pitta/portree/internal/port"
 	"github.com/fairy-pitta/portree/internal/process"
 	"github.com/fairy-pitta/portree/internal/state"
 	"github.com/spf13/cobra"
@@ -51,12 +50,17 @@ var doctorCmd = &cobra.Command{
 
 			cfgObj, cfgErr := config.Load(root)
 			if cfgErr == nil {
-				results = append(results, checkPortConflicts(cfgObj)...)
-
 				stateRoot, stateErr := git.MainWorktreeRoot(cwd)
 				if stateErr != nil {
 					stateRoot = root
 				}
+
+				results = append(results, checkPortConflicts(cfgObj, loadProxyState(stateRoot))...)
+
+				if trees, err := git.ListWorktrees(cwd); err == nil {
+					results = append(results, checkServiceDirs(cfgObj, trees)...)
+				}
+
 				results = append(results, checkStaleState(stateRoot))
 				results = append(results, checkStaleWorktrees(stateRoot, cwd))
 			}
@@ -134,31 +138,127 @@ func checkConfig(root string) checkResult {
 	}
 }
 
-func checkPortConflicts(cfg *config.Config) []checkResult {
-	// Sort for deterministic output order.
+// loadProxyState reads the recorded proxy state, returning the zero value when
+// it cannot be read. Diagnostics should still run when state is unavailable.
+func loadProxyState(stateRoot string) state.ProxyState {
+	store, err := state.NewFileStore(filepath.Join(stateRoot, ".portree"))
+	if err != nil {
+		return state.ProxyState{}
+	}
+	var proxy state.ProxyState
+	if err := store.WithLock(func() error {
+		st, e := store.Load()
+		if e != nil {
+			return e
+		}
+		proxy = st.Proxy
+		return nil
+	}); err != nil {
+		return state.ProxyState{}
+	}
+	return proxy
+}
+
+// sortedServiceNames returns service names in a stable order so doctor output
+// does not reshuffle between runs.
+func sortedServiceNames(cfg *config.Config) []string {
 	names := make([]string, 0, len(cfg.Services))
 	for name := range cfg.Services {
 		names = append(names, name)
 	}
 	sort.Strings(names)
+	return names
+}
+
+// checkServiceDirs reports service working directories that do not exist.
+// A missing dir otherwise surfaces at start time as ENOENT on /bin/sh, which
+// points nowhere near the actual problem.
+func checkServiceDirs(cfg *config.Config, trees []git.Worktree) []checkResult {
+	var results []checkResult
+
+	for _, tree := range trees {
+		if tree.IsBare {
+			continue
+		}
+		branch := tree.Branch
+		if branch == "" {
+			branch = "(detached)"
+		}
+
+		for _, name := range sortedServiceNames(cfg) {
+			svc := cfg.Services[name]
+			// An empty dir means the worktree root, which always exists.
+			if svc.Dir == "" {
+				continue
+			}
+
+			path := filepath.Join(tree.Path, svc.Dir)
+			label := fmt.Sprintf("working dir for %s in %s", name, branch)
+
+			info, err := os.Stat(path)
+			switch {
+			case os.IsNotExist(err):
+				results = append(results, checkResult{
+					name:   label,
+					ok:     false,
+					detail: fmt.Sprintf("%s does not exist", path),
+				})
+			case err != nil:
+				results = append(results, checkResult{
+					name: label, ok: false, detail: err.Error(),
+				})
+			case !info.IsDir():
+				results = append(results, checkResult{
+					name:   label,
+					ok:     false,
+					detail: fmt.Sprintf("%s is not a directory", path),
+				})
+			}
+		}
+	}
+
+	if len(results) == 0 {
+		return []checkResult{{name: "service working dirs", ok: true}}
+	}
+	return results
+}
+
+// checkPortConflicts reports whether each proxy port can be bound. A busy port
+// is only a problem when someone other than portree holds it, so the recorded
+// proxy PID decides between "our proxy is serving" and a real conflict.
+func checkPortConflicts(cfg *config.Config, proxy state.ProxyState) []checkResult {
+	ourProxyRunning := proxy.Status == state.StatusRunning &&
+		proxy.PID > 0 && process.IsProcessRunning(proxy.PID)
 
 	var results []checkResult
-	for _, name := range names {
+	for _, name := range sortedServiceNames(cfg) {
 		svc := cfg.Services[name]
-		ln, err := net.Listen("tcp", ":"+strconv.Itoa(svc.ProxyPort))
-		if err != nil {
-			results = append(results, checkResult{
-				name:   fmt.Sprintf("proxy port %d (%s) available", svc.ProxyPort, name),
-				ok:     false,
-				detail: fmt.Sprintf("port %d already in use", svc.ProxyPort),
-			})
-		} else {
-			_ = ln.Close()
+
+		// port.IsFree probes both stacks with SO_REUSEADDR disabled. A raw
+		// net.Listen on the wildcard address misses a listener bound to
+		// 127.0.0.1, which is exactly how the proxy binds.
+		if port.IsFree(svc.ProxyPort) {
 			results = append(results, checkResult{
 				name: fmt.Sprintf("proxy port %d (%s) available", svc.ProxyPort, name),
 				ok:   true,
 			})
+			continue
 		}
+
+		if ourProxyRunning {
+			results = append(results, checkResult{
+				name:   fmt.Sprintf("proxy port %d (%s) — portree proxy running", svc.ProxyPort, name),
+				ok:     true,
+				detail: fmt.Sprintf("pid %d", proxy.PID),
+			})
+			continue
+		}
+
+		results = append(results, checkResult{
+			name:   fmt.Sprintf("proxy port %d (%s) unavailable", svc.ProxyPort, name),
+			ok:     false,
+			detail: fmt.Sprintf("port %d is held by another process", svc.ProxyPort),
+		})
 	}
 	return results
 }
