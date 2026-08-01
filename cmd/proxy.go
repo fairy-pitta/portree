@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -43,14 +44,26 @@ Use --https to enable HTTPS with auto-generated certificates, or
 		httpsFlag, _ := cmd.Flags().GetBool("https")
 		certFile, _ := cmd.Flags().GetString("cert")
 		keyFile, _ := cmd.Flags().GetString("key")
+		detach, _ := cmd.Flags().GetBool("detach")
+
+		// Validate the pairing before anything else so a detached start fails
+		// here rather than inside a background process.
+		if (certFile != "") != (keyFile != "") {
+			return fmt.Errorf("--cert and --key must be specified together")
+		}
+
+		if detach {
+			status, err := ensureProxyRunning(stateRoot, cfg, proxyFlagArgs(httpsFlag, certFile, keyFile))
+			if err != nil {
+				return err
+			}
+			printProxyReady(status)
+			return nil
+		}
 
 		// Build TLS config if HTTPS is requested.
 		var tlsConfig *tls.Config
 		if httpsFlag || certFile != "" || keyFile != "" {
-			if (certFile != "") != (keyFile != "") {
-				return fmt.Errorf("--cert and --key must be specified together")
-			}
-
 			if certFile == "" {
 				// Auto-generate a dev CA, then mint a leaf certificate per TLS
 				// handshake keyed on the SNI host. This makes any
@@ -203,12 +216,58 @@ and updates the state to stopped.`,
 	},
 }
 
+var proxyStatusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "Show whether the reverse proxy is running",
+	Long: `Report whether the reverse proxy is running, on which ports, and under
+which scheme.
+
+A PID recorded by a proxy that died without cleaning up is detected and
+cleared, so the reported status reflects reality rather than the state file.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		status := describeProxy(cfg, loadProxyState(stateRoot))
+		if status.Stale {
+			clearProxyState(stateRoot)
+		}
+
+		jsonFlag, _ := cmd.Flags().GetBool("json")
+		if jsonFlag {
+			return json.NewEncoder(os.Stdout).Encode(proxyStatusJSON{
+				Running: status.Running,
+				PID:     status.PID,
+				Scheme:  status.Scheme,
+				Ports:   status.Ports,
+			})
+		}
+
+		if !status.Running {
+			fmt.Println("Proxy: stopped")
+			fmt.Println("\nStart it with:")
+			fmt.Println("  portree proxy start --detach")
+			return nil
+		}
+
+		printProxyReady(status)
+		return nil
+	},
+}
+
+type proxyStatusJSON struct {
+	Running bool   `json:"running"`
+	PID     int    `json:"pid"`
+	Scheme  string `json:"scheme"`
+	Ports   []int  `json:"ports"`
+}
+
 func init() {
 	proxyStartCmd.Flags().Bool("https", false, "Enable HTTPS with auto-generated certificates")
 	proxyStartCmd.Flags().String("cert", "", "Path to TLS certificate file")
 	proxyStartCmd.Flags().String("key", "", "Path to TLS private key file")
+	proxyStartCmd.Flags().Bool("detach", false, "Run the proxy in the background")
+	proxyStatusCmd.Flags().Bool("json", false, "Output in JSON format")
 
 	proxyCmd.AddCommand(proxyStartCmd)
 	proxyCmd.AddCommand(proxyStopCmd)
+	proxyCmd.AddCommand(proxyStatusCmd)
 	rootCmd.AddCommand(proxyCmd)
 }
