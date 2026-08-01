@@ -404,3 +404,29 @@ func TestInitThenLoad(t *testing.T) {
 		t.Error("loaded config has no services")
 	}
 }
+
+// TestInitTemplateRunsAtWorktreeRoot pins the generated template to something a
+// fresh repository can run unedited. Pointing dir at a subdirectory that does
+// not exist yet is the first wall a new user hits, and exec reports it as a
+// missing /bin/sh, which points nowhere near the real cause.
+func TestInitTemplateRunsAtWorktreeRoot(t *testing.T) {
+	dir := t.TempDir()
+
+	if _, err := Init(dir); err != nil {
+		t.Fatalf("Init() error: %v", err)
+	}
+
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load() after Init() error: %v", err)
+	}
+	if len(cfg.Services) == 0 {
+		t.Fatal("template defined no services")
+	}
+
+	for name, svc := range cfg.Services {
+		if svc.Dir != "" {
+			t.Errorf("service %q has dir %q; the generated template must run at the worktree root", name, svc.Dir)
+		}
+	}
+}

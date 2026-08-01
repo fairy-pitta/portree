@@ -28,7 +28,7 @@
 - **TUI dashboard** — Interactive terminal UI to start, stop, restart, and monitor all services
 - **Process lifecycle** — Graceful shutdown (SIGTERM → SIGKILL), log files, stale PID cleanup
 - **Per-worktree overrides** — Customize commands, ports, and env vars per branch
-- **AI agent friendly** — `portree ls --json` includes `url` and `direct_url` fields for automatic endpoint discovery
+- **AI agent friendly** — `portree ls --json` includes `url`, `direct_url`, and `proxy_running` fields for automatic endpoint discovery
 
 ---
 
@@ -340,8 +340,11 @@ portree ls
 
 # JSON output (great for AI agents and scripts)
 portree ls --json
-# [{"worktree":"main","service":"frontend","port":3100,"status":"running",
-#   "pid":12345,"url":"http://main.localhost:3000","direct_url":"http://localhost:3100"}, ...]
+# [{"worktree":"main","service":"frontend","port":3100,"status":"running","pid":12345,
+#   "url":"http://main.localhost:3000","direct_url":"http://localhost:3100",
+#   "proxy_running":true}, ...]
+# "url" always reflects the configured proxy URL; "proxy_running" tells you
+# whether anything is currently listening on it.
 
 # Start the proxy
 portree proxy start
@@ -413,7 +416,9 @@ portree completion powershell > portree.ps1
 
 - Check the log file at `.portree/logs/<branch-slug>.<service>.log` for error output.
 - Verify the `command` in `.portree.toml` runs correctly when executed manually.
-- Ensure the working `dir` exists relative to the worktree root.
+- Ensure the working `dir` exists relative to the worktree root. portree reports a
+  missing directory by name before starting, and `portree doctor` lists every
+  service whose `dir` is absent.
 
 ### Port conflict
 

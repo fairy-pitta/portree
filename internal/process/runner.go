@@ -57,6 +57,23 @@ func (r *Runner) Start() (int, error) {
 		}
 	}
 
+	// exec surfaces a missing working directory as ENOENT on the shell binary
+	// ("fork/exec /bin/sh: no such file or directory"), which reads as a broken
+	// system rather than a config mistake. Check it here so the message names
+	// the directory the user has to create. An empty Dir means the worktree
+	// root, which exec handles on its own.
+	if r.config.Dir != "" {
+		info, err := os.Stat(r.config.Dir)
+		switch {
+		case os.IsNotExist(err):
+			return 0, fmt.Errorf("service %q: working dir %q does not exist", r.config.ServiceName, r.config.Dir)
+		case err != nil:
+			return 0, fmt.Errorf("service %q: checking working dir %q: %w", r.config.ServiceName, r.config.Dir, err)
+		case !info.IsDir():
+			return 0, fmt.Errorf("service %q: working dir %q is not a directory", r.config.ServiceName, r.config.Dir)
+		}
+	}
+
 	// Ensure log directory exists.
 	if err := os.MkdirAll(r.config.LogDir, 0700); err != nil {
 		return 0, fmt.Errorf("creating log dir: %w", err)

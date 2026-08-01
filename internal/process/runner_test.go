@@ -242,6 +242,41 @@ func TestRunnerStartStop(t *testing.T) {
 	}
 }
 
+// TestRunnerStartMissingDir covers the first thing a new user hits: the
+// generated config points at a directory that does not exist yet. exec reports
+// that as ENOENT on "/bin/sh", which sends people looking for a broken shell,
+// so Start has to name the directory itself.
+func TestRunnerStartMissingDir(t *testing.T) {
+	r := newTestRunner(t, "true")
+	missing := filepath.Join(t.TempDir(), "no-such-dir")
+	r.config.Dir = missing
+
+	_, err := r.Start()
+	if err == nil {
+		t.Fatal("Start() succeeded with a missing working dir, want an error")
+	}
+
+	msg := err.Error()
+	if !strings.Contains(msg, missing) {
+		t.Errorf("error %q does not name the missing dir %q", msg, missing)
+	}
+	if strings.Contains(msg, "/bin/sh") {
+		t.Errorf("error %q blames the shell rather than the working dir", msg)
+	}
+}
+
+// TestRunnerStartEmptyDirIsAllowed guards the check from rejecting the
+// documented "empty means worktree root" case.
+func TestRunnerStartEmptyDirIsAllowed(t *testing.T) {
+	r := newTestRunner(t, "true")
+	r.config.Dir = ""
+
+	if _, err := r.Start(); err != nil {
+		t.Fatalf("Start() with an empty dir returned %v, want success", err)
+	}
+	t.Cleanup(func() { _ = r.Stop() })
+}
+
 func TestRunnerDoneChannel(t *testing.T) {
 	// Use a command that exits quickly.
 	r := newTestRunner(t, "echo done")

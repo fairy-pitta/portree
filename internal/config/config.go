@@ -173,13 +173,13 @@ func Init(dir string) (string, error) {
 
 [services.frontend]
 command = "pnpm run dev"
-dir = "frontend"                        # relative to worktree root (empty = root)
+# dir = "frontend"                      # relative to worktree root (omit = root)
 port_range = { min = 3100, max = 3199 } # port allocation range for this service
 proxy_port = 3000                        # proxy listens on this port
 
 [services.backend]
 command = "source .venv/bin/activate && python manage.py runserver 0.0.0.0:$PORT"
-dir = "backend"
+# dir = "backend"
 port_range = { min = 8100, max = 8199 }
 proxy_port = 8000
 

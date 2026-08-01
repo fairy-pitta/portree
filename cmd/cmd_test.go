@@ -371,6 +371,60 @@ func TestBuildLsEntries(t *testing.T) {
 	}
 }
 
+// TestBuildLsEntriesURLIsStable keeps the agent-facing discovery field
+// predictable. The URL is a property of the config, not of whether the proxy
+// happens to be up, so it is always present and proxy_running says whether
+// anything will answer it.
+func TestBuildLsEntriesURLIsStable(t *testing.T) {
+	trees := []git.Worktree{{Path: "/a", Branch: "feature/auth"}}
+	serviceNames := []string{"web"}
+	newState := func() *state.State {
+		return &state.State{
+			Services:        map[string]map[string]*state.ServiceState{},
+			PortAssignments: map[string]int{},
+		}
+	}
+	const wantURL = "http://feature-auth.localhost:3000"
+
+	stopped := buildLsEntries(trees, serviceNames, newState(), testCfg,
+		&state.ProxyState{Status: state.StatusStopped})
+	if len(stopped) != 1 {
+		t.Fatalf("got %d entries, want 1", len(stopped))
+	}
+	if stopped[0].URL != wantURL {
+		t.Errorf("URL with the proxy stopped = %q, want %q", stopped[0].URL, wantURL)
+	}
+	if stopped[0].ProxyRunning {
+		t.Error("ProxyRunning = true while the proxy is stopped")
+	}
+
+	running := buildLsEntries(trees, serviceNames, newState(), testCfg,
+		&state.ProxyState{PID: os.Getpid(), Status: state.StatusRunning})
+	if running[0].URL != wantURL {
+		t.Errorf("URL with the proxy running = %q, want %q", running[0].URL, wantURL)
+	}
+	if !running[0].ProxyRunning {
+		t.Error("ProxyRunning = false while the proxy is running")
+	}
+}
+
+// TestBuildLsEntriesStaleProxyPIDIsNotRunning stops a dead PID left in state
+// from advertising the proxy as live.
+func TestBuildLsEntriesStaleProxyPIDIsNotRunning(t *testing.T) {
+	trees := []git.Worktree{{Path: "/a", Branch: "main"}}
+	st := &state.State{
+		Services:        map[string]map[string]*state.ServiceState{},
+		PortAssignments: map[string]int{},
+	}
+
+	entries := buildLsEntries(trees, []string{"web"}, st, testCfg,
+		&state.ProxyState{PID: 0, Status: state.StatusRunning})
+
+	if entries[0].ProxyRunning {
+		t.Error("ProxyRunning = true for a proxy PID that is not alive")
+	}
+}
+
 func TestBuildLsEntries_DetachedHead(t *testing.T) {
 	trees := []git.Worktree{
 		{Path: "/a", Branch: ""},
