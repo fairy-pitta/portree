@@ -59,7 +59,11 @@ make build
 cd your-project
 portree init
 # Creates .portree.toml in the repo root
+# Adds .portree/ to .gitignore
 ```
+
+`.portree.toml` belongs in version control. `.portree/` does not — it holds
+runtime state, service logs, and the generated development CA **private key**.
 
 ### 3. Configure
 

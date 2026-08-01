@@ -59,7 +59,11 @@ make build
 cd your-project
 portree init
 # リポジトリルートに .portree.toml を作成
+# .gitignore に .portree/ を追加
 ```
+
+`.portree.toml` はバージョン管理に含めてください。`.portree/` は含めないでください
+（実行時の状態・サービスログ・開発用CAの**秘密鍵**が入ります）。
 
 ### 3. 設定
 

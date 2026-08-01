@@ -48,7 +48,7 @@ Use --service to specify a different service.`,
 
 		svc, ok := cfg.Services[svcName]
 		if !ok {
-			return fmt.Errorf("unknown service %q", svcName)
+			return unknownServiceError(cfg, svcName)
 		}
 
 		proxy := describeProxy(cfg, loadProxyState(stateRoot))

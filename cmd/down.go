@@ -43,7 +43,7 @@ var downCmd = &cobra.Command{
 
 		if downService != "" {
 			if _, ok := cfg.Services[downService]; !ok {
-				return fmt.Errorf("unknown service %q", downService)
+				return unknownServiceError(cfg, downService)
 			}
 		}
 
@@ -71,25 +71,35 @@ var downCmd = &cobra.Command{
 			}
 			results := mgr.StopServices(&tree, downService)
 			for _, r := range results {
-				if r.Err != nil {
+				switch {
+				case r.Err != nil:
 					logging.Error("stopping %s/%s: %v", r.Branch, r.Service, r.Err)
-				} else {
+				case r.WasRunning:
 					logging.Info("Stopping %s for %s ...", r.Service, r.Branch)
 					totalStopped++
 				}
 			}
 		}
 
-		if totalStopped > 0 {
-			noun := "services"
-			if totalStopped == 1 {
-				noun = "service"
-			}
+		// Saying "stopped" for services that were already idle makes the output
+		// useless for telling whether anything was actually running.
+		if totalStopped == 0 {
 			if downAll {
-				logging.Info("✓ %d %s stopped", totalStopped, noun)
+				logging.Info("No running services to stop.")
 			} else {
-				logging.Info("✓ %d %s stopped for %s", totalStopped, noun, trees[0].Branch)
+				logging.Info("No running services to stop for %s.", trees[0].Branch)
 			}
+			return nil
+		}
+
+		noun := "services"
+		if totalStopped == 1 {
+			noun = "service"
+		}
+		if downAll {
+			logging.Info("✓ %d %s stopped", totalStopped, noun)
+		} else {
+			logging.Info("✓ %d %s stopped for %s", totalStopped, noun, trees[0].Branch)
 		}
 
 		return nil
