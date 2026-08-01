@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 )
@@ -13,9 +14,40 @@ const FileName = ".portree.toml"
 
 // Config represents the .portree.toml configuration file.
 type Config struct {
-	Services  map[string]ServiceConfig `toml:"services"`
-	Env       map[string]string        `toml:"env"`
-	Worktrees map[string]WTOverride    `toml:"worktrees"`
+	// DefaultService is the service `portree open` uses when none is named.
+	// Empty means the alphabetically first service, which for a typical
+	// frontend/backend pair would be the API rather than the UI.
+	DefaultService string                   `toml:"default_service"`
+	Services       map[string]ServiceConfig `toml:"services"`
+	Env            map[string]string        `toml:"env"`
+	Worktrees      map[string]WTOverride    `toml:"worktrees"`
+}
+
+// DefaultServiceName returns the service to act on when the user names none.
+// Returns "" when no services are configured.
+func (c *Config) DefaultServiceName() string {
+	if c.DefaultService != "" {
+		return c.DefaultService
+	}
+	names := make([]string, 0, len(c.Services))
+	for name := range c.Services {
+		names = append(names, name)
+	}
+	if len(names) == 0 {
+		return ""
+	}
+	sort.Strings(names)
+	return names[0]
+}
+
+// ServiceNames returns the configured service names in a stable order.
+func (c *Config) ServiceNames() []string {
+	names := make([]string, 0, len(c.Services))
+	for name := range c.Services {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // ServiceConfig defines a single service within a worktree.
@@ -102,6 +134,13 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("at least one service must be defined in [services]")
 	}
 
+	if c.DefaultService != "" {
+		if _, ok := c.Services[c.DefaultService]; !ok {
+			return fmt.Errorf("default_service %q is not a configured service; configured services: %s",
+				c.DefaultService, strings.Join(c.ServiceNames(), ", "))
+		}
+	}
+
 	proxyPorts := make(map[int]string)
 	for name, svc := range c.Services {
 		if svc.Command == "" {
@@ -166,6 +205,9 @@ func Init(dir string) (string, error) {
 
 	content := `# portree - Git Worktree Server Manager configuration
 # See: https://github.com/fairy-pitta/portree
+
+# Service opened by "portree open" when no --service is given.
+default_service = "frontend"
 
 # --- Service definitions ---
 # Define services to run per worktree.

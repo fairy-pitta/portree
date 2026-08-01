@@ -38,12 +38,7 @@ Use --service to specify a different service.`,
 		// Determine which service to open.
 		svcName := openService
 		if svcName == "" {
-			// Use the first service alphabetically.
-			for name := range cfg.Services {
-				if svcName == "" || name < svcName {
-					svcName = name
-				}
-			}
+			svcName = cfg.DefaultServiceName()
 		}
 
 		svc, ok := cfg.Services[svcName]
