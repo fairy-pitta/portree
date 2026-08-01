@@ -156,6 +156,18 @@ portree open --service backend  # http://main.localhost:8000 を開く
 
 `.portree.toml` は git リポジトリのルートに配置します。
 
+### `default_service`
+
+`--service` を指定せずに `portree open` を実行したときに開くサービス。
+
+```toml
+default_service = "frontend"
+```
+
+省略可。未設定の場合はアルファベット順で最初のサービスになります。`frontend` +
+`backend` の構成では backend が選ばれてしまうため、設定しておくのが無難です。
+`portree init` が自動で書き込みます。
+
 ### `[services.<name>]`
 
 1 つ以上のサービスを定義します。各 worktree で定義された全サービスが起動されます。

@@ -405,6 +405,71 @@ func TestInitThenLoad(t *testing.T) {
 	}
 }
 
+// TestDefaultServiceName covers which service `portree open` reaches for when
+// none is named. Falling back to the alphabetically first one opens "backend"
+// for the stock frontend+backend template — the API, not the UI someone asked
+// to look at.
+func TestDefaultServiceName(t *testing.T) {
+	svcs := map[string]ServiceConfig{"frontend": {}, "backend": {}, "admin": {}}
+
+	t.Run("explicit wins", func(t *testing.T) {
+		c := &Config{Services: svcs, DefaultService: "frontend"}
+		if got := c.DefaultServiceName(); got != "frontend" {
+			t.Errorf("DefaultServiceName() = %q, want %q", got, "frontend")
+		}
+	})
+
+	t.Run("falls back to the first alphabetically", func(t *testing.T) {
+		c := &Config{Services: svcs}
+		if got := c.DefaultServiceName(); got != "admin" {
+			t.Errorf("DefaultServiceName() = %q, want %q", got, "admin")
+		}
+	})
+
+	t.Run("no services", func(t *testing.T) {
+		c := &Config{Services: map[string]ServiceConfig{}}
+		if got := c.DefaultServiceName(); got != "" {
+			t.Errorf("DefaultServiceName() = %q, want empty", got)
+		}
+	})
+}
+
+// TestValidateRejectsUnknownDefaultService catches a typo at load time rather
+// than when open fails much later.
+func TestValidateRejectsUnknownDefaultService(t *testing.T) {
+	c := &Config{
+		Services: map[string]ServiceConfig{
+			"web": {Command: "x", PortRange: PortRange{Min: 1, Max: 2}, ProxyPort: 3},
+		},
+		DefaultService: "nope",
+	}
+
+	err := c.Validate()
+	if err == nil {
+		t.Fatal("Validate() = nil for a default_service that names no service")
+	}
+	if !strings.Contains(err.Error(), "nope") || !strings.Contains(err.Error(), "web") {
+		t.Errorf("error %q should name both the bad value and the configured services", err)
+	}
+}
+
+// TestInitTemplateNamesADefaultService keeps the generated config pointing at
+// the UI rather than whichever service sorts first.
+func TestInitTemplateNamesADefaultService(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := Init(dir); err != nil {
+		t.Fatalf("Init() error: %v", err)
+	}
+
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if got := cfg.DefaultServiceName(); got != "frontend" {
+		t.Errorf("template default service = %q, want %q", got, "frontend")
+	}
+}
+
 // TestInitTemplateRunsAtWorktreeRoot pins the generated template to something a
 // fresh repository can run unedited. Pointing dir at a subdirectory that does
 // not exist yet is the first wall a new user hits, and exec reports it as a

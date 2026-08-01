@@ -156,6 +156,18 @@ running, rather than leaving you on a connection error page.
 
 The `.portree.toml` file lives at the root of your git repository.
 
+### `default_service`
+
+Which service `portree open` opens when `--service` is not given.
+
+```toml
+default_service = "frontend"
+```
+
+Optional. When unset, the alphabetically first service is used — which for a
+`frontend` + `backend` pair means the backend, so it is worth setting. `portree
+init` writes it for you.
+
 ### `[services.<name>]`
 
 Define one or more services. Each worktree will run all defined services.

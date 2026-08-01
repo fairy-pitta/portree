@@ -1,6 +1,7 @@
 package port
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/fairy-pitta/portree/internal/config"
@@ -34,6 +35,26 @@ func TestHashPort(t *testing.T) {
 			t.Errorf("hashPort(feature/auth,api) = %d, not in range", b)
 		}
 	})
+}
+
+// TestAllocateExhaustedSuggestsAFix covers the message a user sees when they
+// add one worktree too many: it should say what to change, not just that the
+// range is full.
+func TestAllocateExhaustedSuggestsAFix(t *testing.T) {
+	svc := config.ServiceConfig{PortRange: config.PortRange{Min: 19990, Max: 19991}}
+	used := map[int]bool{19990: true, 19991: true}
+
+	_, err := Allocate("feature/x", "web", svc, 0, used)
+	if err == nil {
+		t.Fatal("Allocate() = nil with every port taken, want an error")
+	}
+
+	msg := err.Error()
+	for _, want := range []string{"19990", "19991", "web", "port_range"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("error %q does not mention %q", msg, want)
+		}
+	}
 }
 
 func TestAllocate(t *testing.T) {

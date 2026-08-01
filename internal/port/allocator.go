@@ -30,7 +30,8 @@ func Allocate(branch, service string, svc config.ServiceConfig, fixedPort int, u
 		}
 	}
 
-	return 0, fmt.Errorf("no available port in range [%d, %d] for %s/%s", pr.Min, pr.Max, branch, service)
+	return 0, fmt.Errorf("no available port in range [%d, %d] for %s/%s; widen port_range for service %q in %s",
+		pr.Min, pr.Max, branch, service, service, config.FileName)
 }
 
 // hashPort returns a port within [minPort, maxPort] based on FNV32 of branch+service.
