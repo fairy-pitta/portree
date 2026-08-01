@@ -75,6 +75,41 @@ func TestHandlerUnknownSlug(t *testing.T) {
 	}
 }
 
+// TestHandlerAmbiguousSlug asserts the collision surfaces to the browser as a
+// 409 naming both branches, rather than quietly proxying to one of them.
+func TestHandlerAmbiguousSlug(t *testing.T) {
+	proxy, store := setupProxyTest(t)
+
+	// setupProxyTest registers "feature/auth"; add a branch sharing its slug.
+	if err := store.WithLock(func() error {
+		st, e := store.Load()
+		if e != nil {
+			return e
+		}
+		state.SetPortAssignment(st, "feature-auth", "web", 3151)
+		return store.Save(st)
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	handler := proxy.handler(3000)
+
+	req := httptest.NewRequest("GET", "http://feature-auth.localhost:3000/", nil)
+	req.Host = "feature-auth.localhost:3000"
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusConflict)
+	}
+	for _, want := range []string{"ambiguous", "feature/auth", "feature-auth"} {
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Errorf("body %q does not mention %q", rec.Body.String(), want)
+		}
+	}
+}
+
 func TestProxyServerStartStop(t *testing.T) {
 	proxy, _ := setupProxyTest(t)
 

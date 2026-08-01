@@ -1,6 +1,8 @@
 package proxy
 
 import (
+	"errors"
+	"slices"
 	"sort"
 	"testing"
 
@@ -90,6 +92,39 @@ func TestResolverResolveUnknownSlug(t *testing.T) {
 	_, err := resolver.Resolve("unknown-slug", 3000)
 	if err == nil {
 		t.Fatal("Resolve() expected error for unknown slug")
+	}
+}
+
+// TestResolverResolveAmbiguousSlug pins down what happens when two branches
+// collapse to the same slug. Picking either one would silently show a reviewer
+// the wrong worktree, so resolution must fail loudly and name both branches.
+func TestResolverResolveAmbiguousSlug(t *testing.T) {
+	resolver, store := setupResolver(t)
+
+	// setupResolver registers "feature/auth"; BranchSlug maps a literal
+	// "feature-auth" branch onto the very same slug.
+	if err := store.WithLock(func() error {
+		st, e := store.Load()
+		if e != nil {
+			return e
+		}
+		state.SetPortAssignment(st, "feature-auth", "web", 3151)
+		return store.Save(st)
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := resolver.Resolve("feature-auth", 3000)
+	if err == nil {
+		t.Fatal("Resolve() succeeded for an ambiguous slug, want an error")
+	}
+
+	var ambiguous *AmbiguousSlugError
+	if !errors.As(err, &ambiguous) {
+		t.Fatalf("Resolve() error = %v (%T), want *AmbiguousSlugError", err, err)
+	}
+	if want := []string{"feature-auth", "feature/auth"}; !slices.Equal(ambiguous.Branches, want) {
+		t.Errorf("Branches = %v, want %v (sorted, so the message is stable)", ambiguous.Branches, want)
 	}
 }
 

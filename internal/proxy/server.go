@@ -146,6 +146,14 @@ func (p *ProxyServer) handler(proxyPort int) http.Handler {
 
 		backendPort, err := p.resolver.Resolve(slug, proxyPort)
 		if err != nil {
+			var ambiguous *AmbiguousSlugError
+			if errors.As(err, &ambiguous) {
+				http.Error(w, fmt.Sprintf(
+					"portree: slug %q is ambiguous between branches: %s\n"+
+						"Rename or remove one of these worktrees so each maps to a unique slug.",
+					ambiguous.Slug, strings.Join(ambiguous.Branches, ", ")), http.StatusConflict)
+				return
+			}
 			msg := fmt.Sprintf("portree: no worktree found for slug %q", slug)
 			if slugs, err := p.resolver.AvailableSlugs(); err == nil && len(slugs) > 0 {
 				msg += fmt.Sprintf("\nAvailable: %s", strings.Join(slugs, ", "))
