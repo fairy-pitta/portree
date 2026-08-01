@@ -2,12 +2,25 @@ package proxy
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/fairy-pitta/portree/internal/config"
 	"github.com/fairy-pitta/portree/internal/git"
 	"github.com/fairy-pitta/portree/internal/state"
 )
+
+// AmbiguousSlugError reports that a slug maps to more than one branch, so the
+// request cannot be routed. Resolving to either candidate would silently serve
+// a different worktree than the one the URL names, which is worse than failing.
+type AmbiguousSlugError struct {
+	Slug     string
+	Branches []string
+}
+
+func (e *AmbiguousSlugError) Error() string {
+	return fmt.Sprintf("slug %q is ambiguous between branches %s", e.Slug, strings.Join(e.Branches, ", "))
+}
 
 // Resolver maps slug + proxy_port to real backend port.
 type Resolver struct {
@@ -42,17 +55,27 @@ func (r *Resolver) Resolve(slug string, proxyPort int) (int, error) {
 		if e != nil {
 			return e
 		}
-		// Find the branch that matches this slug.
+		// Collect every branch matching this slug. Map iteration order is
+		// random, so stopping at the first match would route a colliding slug
+		// to a different worktree from one request to the next.
+		var matches []string
+		seen := map[string]bool{}
 		for key := range st.PortAssignments {
-			parts := strings.SplitN(key, ":", 2)
-			if len(parts) == 2 && git.BranchSlug(parts[0]) == slug {
-				branch = parts[0]
-				break
+			b, _ := state.ParsePortKey(key)
+			if b == "" || seen[b] || git.BranchSlug(b) != slug {
+				continue
 			}
+			seen[b] = true
+			matches = append(matches, b)
 		}
-		if branch == "" {
+		if len(matches) == 0 {
 			return fmt.Errorf("no worktree found for slug %q", slug)
 		}
+		if len(matches) > 1 {
+			sort.Strings(matches)
+			return &AmbiguousSlugError{Slug: slug, Branches: matches}
+		}
+		branch = matches[0]
 		port = state.GetPortAssignment(st, branch, serviceName)
 		return nil
 	}); err != nil {
