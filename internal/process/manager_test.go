@@ -109,6 +109,41 @@ func newTestManager(t *testing.T) (*Manager, *state.FileStore) {
 	return mgr, store
 }
 
+// TestStopServicesReportsWhatWasRunning distinguishes a real stop from a
+// no-op. Without it `portree down` on an idle worktree announces that it
+// stopped services that were never up.
+func TestStopServicesReportsWhatWasRunning(t *testing.T) {
+	mgr, _ := newTestManager(t)
+	tree := &git.Worktree{Path: t.TempDir(), Branch: "main"}
+
+	t.Run("nothing running", func(t *testing.T) {
+		results := mgr.StopServices(tree, "web")
+		if len(results) != 1 {
+			t.Fatalf("StopServices returned %d results, want 1", len(results))
+		}
+		if results[0].Err != nil {
+			t.Fatalf("StopServices error: %v", results[0].Err)
+		}
+		if results[0].WasRunning {
+			t.Error("WasRunning = true for a service that was never started")
+		}
+	})
+
+	t.Run("after a real start", func(t *testing.T) {
+		if r := mgr.StartServices(tree, "web")[0]; r.Err != nil {
+			t.Fatalf("StartServices error: %v", r.Err)
+		}
+
+		results := mgr.StopServices(tree, "web")
+		if results[0].Err != nil {
+			t.Fatalf("StopServices error: %v", results[0].Err)
+		}
+		if !results[0].WasRunning {
+			t.Error("WasRunning = false although the service had been started")
+		}
+	})
+}
+
 func TestManagerStartStopServices(t *testing.T) {
 	mgr, store := newTestManager(t)
 

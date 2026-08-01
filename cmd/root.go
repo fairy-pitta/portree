@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/fairy-pitta/portree/internal/config"
 	"github.com/fairy-pitta/portree/internal/git"
@@ -85,4 +86,14 @@ func init() {
 // Execute runs the root command.
 func Execute() error {
 	return rootCmd.Execute()
+}
+
+// unknownServiceError reports a --service value that is not configured, listing
+// what is, so the user does not have to open the config to find the right name.
+func unknownServiceError(c *config.Config, name string) error {
+	if c == nil || len(c.Services) == 0 {
+		return fmt.Errorf("unknown service %q: no services are configured in %s", name, config.FileName)
+	}
+	return fmt.Errorf("unknown service %q; configured services: %s",
+		name, strings.Join(sortedServiceNames(c), ", "))
 }

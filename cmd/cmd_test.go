@@ -224,6 +224,28 @@ func TestUpNoProxy(t *testing.T) {
 	}
 }
 
+// TestUnknownServiceError checks the message names the alternatives. Echoing
+// only the rejected name leaves the user to go and read the config to find out
+// what they should have typed.
+func TestUnknownServiceError(t *testing.T) {
+	c := &config.Config{Services: map[string]config.ServiceConfig{
+		"web": {}, "api": {}, "admin": {},
+	}}
+
+	err := unknownServiceError(c, "wbe")
+	if err == nil {
+		t.Fatal("unknownServiceError() = nil, want an error")
+	}
+
+	msg := err.Error()
+	if !strings.Contains(msg, `"wbe"`) {
+		t.Errorf("error %q does not quote the rejected name", msg)
+	}
+	if !strings.Contains(msg, "admin, api, web") {
+		t.Errorf("error %q does not list the configured services in sorted order", msg)
+	}
+}
+
 func TestVersionCommand(t *testing.T) {
 	resetRootCmd()
 	rootCmd.SetArgs([]string{"version"})

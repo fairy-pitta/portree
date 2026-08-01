@@ -65,6 +65,9 @@ type ServiceResult struct {
 	// AlreadyRunning is true when the service was found healthy and running,
 	// so no new process was started.
 	AlreadyRunning bool
+	// WasRunning is set by StopServices and reports whether a live process was
+	// actually stopped, as opposed to the service already being idle.
+	WasRunning bool
 }
 
 // defaultStartupGrace is how long a freshly started service is watched for an
@@ -324,6 +327,7 @@ func (m *Manager) StopServices(tree *git.Worktree, serviceFilter string) []Servi
 
 		// Try runner first.
 		if runner, ok := m.getRunner(key); ok {
+			result.WasRunning = runner.IsRunning()
 			result.Err = runner.Stop()
 			m.deleteRunner(key)
 		} else {
@@ -336,6 +340,7 @@ func (m *Manager) StopServices(tree *git.Worktree, serviceFilter string) []Servi
 				ss := state.GetServiceState(st, tree.Branch, svcName)
 				if ss != nil && ss.PID > 0 && IsProcessRunning(ss.PID) {
 					result.PID = ss.PID
+					result.WasRunning = true
 					result.Err = StopPID(ss.PID)
 				}
 				return nil

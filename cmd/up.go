@@ -32,7 +32,7 @@ var upCmd = &cobra.Command{
 		// Validate service filter.
 		if upService != "" {
 			if _, ok := cfg.Services[upService]; !ok {
-				return fmt.Errorf("unknown service %q", upService)
+				return unknownServiceError(cfg, upService)
 			}
 		}
 
