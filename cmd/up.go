@@ -17,6 +17,7 @@ var (
 	upAll     bool
 	upService string
 	upNoProxy bool
+	upSkip    []string
 )
 
 var upCmd = &cobra.Command{
@@ -35,6 +36,11 @@ var upCmd = &cobra.Command{
 				return unknownServiceError(cfg, upService)
 			}
 		}
+		for _, skip := range upSkip {
+			if _, ok := cfg.Services[skip]; !ok {
+				return fmt.Errorf("unknown service %q in --skip", skip)
+			}
+		}
 
 		stateDir := filepath.Join(stateRoot, ".portree")
 		store, err := state.NewFileStore(stateDir)
@@ -44,6 +50,40 @@ var upCmd = &cobra.Command{
 
 		registry := port.NewRegistry(store, cfg)
 		mgr := process.NewManager(cfg, store, registry)
+
+		// Reclaim ports and state held by worktrees that no longer exist before
+		// allocating. Port assignments are never released on `down` or when a
+		// worktree is removed, so without this a small port range fills up
+		// permanently: once every slot has been claimed by some branch, no new
+		// worktree can allocate one even though those branches are long gone.
+		// Guarded on a non-empty active set so a failed `git worktree list`
+		// can't wipe live state.
+		if allTrees, lerr := git.ListWorktrees(cwd); lerr == nil {
+			active := make(map[string]bool, len(allTrees))
+			for _, t := range allTrees {
+				if !t.IsBare {
+					active[t.Branch] = true
+				}
+			}
+			if len(active) > 0 {
+				if werr := store.WithLock(func() error {
+					st, e := store.Load()
+					if e != nil {
+						return e
+					}
+					pruned := state.PruneToActiveBranches(st, active)
+					if len(pruned) == 0 {
+						return nil
+					}
+					logging.Info("reclaimed ports for %d removed worktree(s): %v", len(pruned), pruned)
+					return store.Save(st)
+				}); werr != nil {
+					logging.Warn("failed to reclaim orphaned port assignments: %v", werr)
+				}
+			}
+		} else {
+			logging.Warn("skipping orphan reclaim (could not list worktrees): %v", lerr)
+		}
 
 		var trees []git.Worktree
 		if upAll {
@@ -74,7 +114,7 @@ var upCmd = &cobra.Command{
 				continue
 			}
 			logging.Verbose("starting services for worktree %s (%s)", tree.Branch, tree.Path)
-			results := mgr.StartServices(&tree, upService)
+			results := mgr.StartServices(&tree, upService, upSkip...)
 			for _, r := range results {
 				switch {
 				case r.Err != nil:
@@ -143,5 +183,6 @@ func init() {
 	upCmd.Flags().BoolVar(&upAll, "all", false, "Start services for all worktrees")
 	upCmd.Flags().StringVar(&upService, "service", "", "Start only a specific service")
 	upCmd.Flags().BoolVar(&upNoProxy, "no-proxy", false, "Do not start the reverse proxy")
+	upCmd.Flags().StringSliceVar(&upSkip, "skip", nil, "Allocate ports but do not start these services")
 	rootCmd.AddCommand(upCmd)
 }

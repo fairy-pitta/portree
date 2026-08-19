@@ -87,16 +87,31 @@ func startupGraceWindow() time.Duration {
 
 // StartServices starts services for the given worktree.
 // If serviceFilter is non-empty, only that service is started.
-func (m *Manager) StartServices(tree *git.Worktree, serviceFilter string) []ServiceResult {
+// Services named in skip get ports allocated (so cross-service env vars like
+// PT_<SVC>_PORT stay correct for the services that do run) but are not started.
+func (m *Manager) StartServices(tree *git.Worktree, serviceFilter string, skip ...string) []ServiceResult {
 	var results []ServiceResult
 
 	services := m.targetServices(serviceFilter)
+	skipped := make(map[string]bool, len(skip))
+	for _, s := range skip {
+		skipped[s] = true
+	}
 
 	// First allocate all ports so cross-service env vars are available.
 	portMap := map[string]int{}
 	for _, svcName := range services {
 		p, err := m.registry.AssignPort(tree.Branch, svcName)
 		if err != nil {
+			// A skipped service is not being started, so a failed allocation is
+			// not fatal: it only means its PT_<SVC>_PORT env var is unavailable
+			// to the services that do run (harmless unless one references it).
+			// Don't fail `up` over a port we were never going to use — e.g. a
+			// worker range already exhausted by sibling worktrees.
+			if skipped[svcName] {
+				logging.Warn("skipping port allocation for %s/%s: %v", tree.Branch, svcName, err)
+				continue
+			}
 			results = append(results, ServiceResult{
 				Branch: tree.Branch, Service: svcName, Err: err,
 			})
@@ -133,6 +148,10 @@ func (m *Manager) StartServices(tree *git.Worktree, serviceFilter string) []Serv
 		p, ok := portMap[svcName]
 		if !ok {
 			continue // port allocation failed, already reported
+		}
+
+		if skipped[svcName] {
+			continue
 		}
 
 		// Clean up stale processes.

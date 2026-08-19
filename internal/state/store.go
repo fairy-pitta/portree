@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -166,6 +167,38 @@ func OrphanedBranches(st *State, activeBranches map[string]bool) []string {
 		}
 	}
 	return orphaned
+}
+
+// PruneToActiveBranches deletes all service state and port assignments belonging
+// to branches not present in activeBranches, returning the pruned branch names
+// (sorted). This reclaims ports held by worktrees that have since been removed:
+// without it, a bounded port range (e.g. a service with only a handful of ports)
+// is permanently exhausted once every slot has been claimed by a branch, even
+// after those worktrees are gone, so no new worktree can ever allocate one.
+//
+// Callers must pass a non-empty activeBranches set derived from a successful
+// `git worktree list`; pruning against an empty set would wipe all live state.
+func PruneToActiveBranches(st *State, activeBranches map[string]bool) []string {
+	prunedSet := map[string]bool{}
+	for branch := range st.Services {
+		if !activeBranches[branch] {
+			delete(st.Services, branch)
+			prunedSet[branch] = true
+		}
+	}
+	for key := range st.PortAssignments {
+		branch, _ := ParsePortKey(key)
+		if !activeBranches[branch] {
+			delete(st.PortAssignments, key)
+			prunedSet[branch] = true
+		}
+	}
+	pruned := make([]string, 0, len(prunedSet))
+	for branch := range prunedSet {
+		pruned = append(pruned, branch)
+	}
+	sort.Strings(pruned)
+	return pruned
 }
 
 func emptyState() *State {

@@ -93,6 +93,55 @@ func TestOrphanedBranches(t *testing.T) {
 	})
 }
 
+func TestPruneToActiveBranches(t *testing.T) {
+	t.Run("reclaims state and ports of removed worktrees", func(t *testing.T) {
+		st := emptyState()
+		SetServiceState(st, "main", "worker", &ServiceState{Port: 9091})
+		SetPortAssignment(st, "main", "worker", 9091)
+		SetServiceState(st, "gone-a", "worker", &ServiceState{Port: 9092})
+		SetPortAssignment(st, "gone-a", "worker", 9092)
+		// A dead branch that only left a port assignment behind (no service state).
+		SetPortAssignment(st, "gone-b", "worker", 9093)
+
+		pruned := PruneToActiveBranches(st, map[string]bool{"main": true})
+
+		if len(pruned) != 2 {
+			t.Fatalf("pruned = %v, want 2 branches", pruned)
+		}
+		if pruned[0] != "gone-a" || pruned[1] != "gone-b" {
+			t.Fatalf("pruned = %v, want sorted [gone-a gone-b]", pruned)
+		}
+		if _, ok := st.Services["gone-a"]; ok {
+			t.Error("gone-a service state was not pruned")
+		}
+		if GetPortAssignment(st, "gone-a", "worker") != 0 {
+			t.Error("gone-a port assignment was not reclaimed")
+		}
+		if GetPortAssignment(st, "gone-b", "worker") != 0 {
+			t.Error("gone-b port assignment was not reclaimed")
+		}
+		// Live branch is untouched.
+		if GetPortAssignment(st, "main", "worker") != 9091 {
+			t.Error("live branch main lost its port assignment")
+		}
+		if _, ok := st.Services["main"]; !ok {
+			t.Error("live branch main lost its service state")
+		}
+	})
+
+	t.Run("no-op when all branches active", func(t *testing.T) {
+		st := emptyState()
+		SetPortAssignment(st, "main", "worker", 9091)
+		pruned := PruneToActiveBranches(st, map[string]bool{"main": true})
+		if len(pruned) != 0 {
+			t.Fatalf("pruned = %v, want none", pruned)
+		}
+		if GetPortAssignment(st, "main", "worker") != 9091 {
+			t.Error("active branch assignment should be preserved")
+		}
+	})
+}
+
 func TestSetAndGetServiceState(t *testing.T) {
 	t.Run("set and get", func(t *testing.T) {
 		st := emptyState()
