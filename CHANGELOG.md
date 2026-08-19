@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0](https://github.com/fairy-pitta/portree/compare/v0.4.0...v0.5.0) (2026-08-19)
+
+
+### Features
+
+* portree up --skip &lt;service&gt; ([#19](https://github.com/fairy-pitta/portree/issues/19)) ([2246dcc](https://github.com/fairy-pitta/portree/commit/2246dcc151ce069806bdd0aae55afbe6ab46d52d))
+
 ## [0.4.0](https://github.com/fairy-pitta/portree/compare/v0.3.0...v0.4.0) (2026-08-01)
 
 
