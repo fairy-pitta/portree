@@ -18,7 +18,7 @@ jobs:
       # Merging that PR creates the git tag + GitHub Release; only then do the
       # goreleaser steps below run (guarded on release_created) to build and
       # attach the binaries and update the Homebrew tap.
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v5
         id: release
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
