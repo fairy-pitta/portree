@@ -21,3 +21,7 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# ツールが作るもの（Serena のキャッシュ・テストのカバレッジ）
+.serena/
+coverage.out
